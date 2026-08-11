@@ -28,9 +28,6 @@ export async function GET(_req: NextRequest, { params }: Params) {
 
 export async function PUT(req: NextRequest, { params }: Params) {
   try {
-    const rateLimitError = await applyRateLimit(req);
-    if (rateLimitError) return rateLimitError;
-    
     requireAdmin(await getAuthUser());
     const { id } = await params;
     const body = await req.json();
@@ -60,11 +57,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: Params) {
+export async function DELETE(_req: NextRequest, { params }: Params) {
   try {
-    const rateLimitError = await applyRateLimit(req);
-    if (rateLimitError) return rateLimitError;
-    
     requireAdmin(await getAuthUser());
     const { id } = await params;
     const task = await prisma.task.findUnique({ where: { id } });
