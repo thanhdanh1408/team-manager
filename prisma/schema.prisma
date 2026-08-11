@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String
+  position     String
+  phone        String   @default("")
+  avatar       String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  createdTasks  Task[]         @relation("TaskCreator")
+  assignedTasks Task[]         @relation("TaskAssignee")
+  evaluations   Evaluation[]   @relation("EvalMember")
+  givenEvals    Evaluation[]   @relation("EvalEvaluator")
+  logs          ActivityLog[]
+  comments      TaskComment[]
+  notifications Notification[]
+}
+
+model Task {
+  id              String    @id @default(cuid())
+  title           String
+  description     String    @default("")
+  assigneeId      String?
+  createdById     String
+  priority        String    @default("medium")
+  status          String    @default("pending")
+  progress        Int       @default(0)
+  dueDate         DateTime
+  rejectionReason String?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  assignee    User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  creator     User          @relation("TaskCreator", fields: [createdById], references: [id])
+  evaluations Evaluation[]
+  comments    TaskComment[]
+}
+
+model Evaluation {
+  id          String   @id @default(cuid())
+  memberId    String
+  evaluatorId String
+  taskId      String?
+  rating      Int
+  comment     String
+  createdAt   DateTime @default(now())
+
+  member    User  @relation("EvalMember", fields: [memberId], references: [id], onDelete: Cascade)
+  evaluator User  @relation("EvalEvaluator", fields: [evaluatorId], references: [id])
+  task      Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  detail    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
