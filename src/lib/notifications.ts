@@ -27,7 +27,7 @@ export async function notifyUser(params: {
 export async function notifyTaskAssigned(
   assigneeId: string | null | undefined,
   taskTitle: string,
-  _taskId: string
+  taskId: string
 ) {
   if (!assigneeId) return;
   await notifyUser({
@@ -35,6 +35,8 @@ export async function notifyTaskAssigned(
     title: "Công việc mới",
     message: `Bạn được giao task: ${taskTitle}`,
     type: "task",
-    link: "/member/tasks",
+    link: `/member/tasks`,
   });
+  // taskId reserved for future deep-link support
+  void taskId;
 }

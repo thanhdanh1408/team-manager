@@ -73,18 +73,21 @@ export default function AdminProfilePage() {
         className="max-w-lg space-y-4 rounded-xl border border-slate-200 bg-white p-6"
       >
         <Input
+          id="name"
           label="Họ tên"
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           required
         />
-        <Input label="Email" value={user?.email || ""} disabled />
+        <Input id="email" label="Email" value={user?.email || ""} disabled />
         <Input
+          id="position"
           label="Chức vụ"
           value={form.position}
           onChange={(e) => setForm({ ...form, position: e.target.value })}
         />
         <Input
+          id="phone"
           label="Số điện thoại"
           value={form.phone}
           onChange={(e) => setForm({ ...form, phone: e.target.value })}
@@ -95,6 +98,7 @@ export default function AdminProfilePage() {
           </p>
           <div className="space-y-3">
             <Input
+              id="new-password"
               label="Mật khẩu mới"
               type="password"
               value={form.password}
@@ -102,6 +106,7 @@ export default function AdminProfilePage() {
               autoComplete="new-password"
             />
             <Input
+              id="confirm-password"
               label="Xác nhận mật khẩu"
               type="password"
               value={form.confirm}

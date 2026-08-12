@@ -292,7 +292,7 @@ export default function MembersPage() {
                               : "bg-slate-100 text-slate-500 border-slate-200"
                           }
                         >
-                          {m.isActive ? "Hoạt động" : "Ngừng"}
+                          {m.isActive ? "Hoạt động" : "Ngừng HĐ"}
                         </Badge>
                       </td>
                       <td className="px-5 py-3.5">

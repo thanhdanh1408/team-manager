@@ -3,6 +3,7 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckSquare, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/Input";
@@ -154,31 +155,43 @@ export default function LoginPage() {
             >
               {submitting ? "Đang đăng nhập..." : "Đăng nhập"}
             </Button>
+
+            <p className="text-center text-sm text-slate-500">
+              Chưa có tài khoản?{" "}
+              <Link
+                href="/register"
+                className="font-medium text-slate-900 hover:underline"
+              >
+                Đăng ký ngay
+              </Link>
+            </p>
           </form>
 
-          <div className="mt-8">
-            <p className="text-xs text-slate-400 text-center mb-3">
-              Tài khoản demo — bấm để điền sẵn
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickLogin("admin")}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300"
-              >
-                <p className="text-xs font-medium text-slate-900">Admin</p>
-                <p className="text-xs text-slate-500 mt-0.5">admin@team.vn</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => quickLogin("member")}
-                className="rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300"
-              >
-                <p className="text-xs font-medium text-slate-900">Thành viên</p>
-                <p className="text-xs text-slate-500 mt-0.5">mai@team.vn</p>
-              </button>
+          {process.env.NODE_ENV !== "production" && (
+            <div className="mt-8">
+              <p className="text-xs text-slate-400 text-center mb-3">
+                Tài khoản demo — bấm để điền sẵn
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => quickLogin("admin")}
+                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                  <p className="text-xs font-medium text-slate-900">Admin</p>
+                  <p className="text-xs text-slate-500 mt-0.5">admin@team.vn</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => quickLogin("member")}
+                  className="rounded-lg border border-slate-200 px-3 py-2.5 text-left hover:bg-slate-50 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-slate-300"
+                >
+                  <p className="text-xs font-medium text-slate-900">Thành viên</p>
+                  <p className="text-xs text-slate-500 mt-0.5">mai@team.vn</p>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

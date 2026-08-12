@@ -65,7 +65,6 @@ function TasksContent() {
     deleteTask,
     approveRejection,
     denyRejection,
-    reassignTask,
   } = useStore();
 
   const initialStatus = searchParams.get("status") || "all";
@@ -156,18 +155,13 @@ function TasksContent() {
     setSubmitting(true);
     try {
       if (editing) {
-        const prevAssignee = editing.assigneeId;
-        const newAssignee = form.assigneeId || null;
         await updateTask(editing.id, {
           title: form.title.trim(),
           description: form.description.trim(),
-          assigneeId: newAssignee,
+          assigneeId: form.assigneeId || null,
           priority: form.priority,
           dueDate: new Date(form.dueDate).toISOString(),
         });
-        if (newAssignee && newAssignee !== prevAssignee) {
-          await reassignTask(editing.id, newAssignee);
-        }
         toast.success("Cập nhật task thành công");
       } else {
         await addTask({
@@ -214,7 +208,7 @@ function TasksContent() {
   const handleDeny = async (id: string) => {
     try {
       await denyRejection(id);
-      toast.success("Đã từ chối yêu cầu hủy — task trở lại chờ phản hồi");
+      toast.success("Đã từ chối yêu cầu hủy — task trở lại chờ xác nhận");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Thất bại");
     }

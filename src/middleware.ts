@@ -47,11 +47,12 @@ function checkCsrf(req: NextRequest): boolean {
   const cookieToken = req.cookies.get(CSRF_COOKIE)?.value;
   const headerToken = req.headers.get("x-csrf-token");
   if (!cookieToken) {
-    // Allow first login/logout without CSRF cookie yet
+    // Allow first login/logout/register without CSRF cookie yet
     if (
       req.nextUrl.pathname === "/api/auth/login" ||
       req.nextUrl.pathname === "/api/auth/logout" ||
-      req.nextUrl.pathname === "/api/auth/refresh"
+      req.nextUrl.pathname === "/api/auth/refresh" ||
+      req.nextUrl.pathname === "/api/auth/register"
     ) {
       return true;
     }
@@ -90,8 +91,8 @@ export async function middleware(req: NextRequest) {
     }
   }
 
-  // Redirect logged-in users away from login
-  if (pathname === "/login" && user) {
+  // Redirect logged-in users away from login/register
+  if ((pathname === "/login" || pathname === "/register") && user) {
     return NextResponse.redirect(
       new URL(user.role === "admin" ? "/admin" : "/member", req.url)
     );
@@ -101,5 +102,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/member/:path*", "/login", "/api/:path*"],
+  matcher: ["/admin/:path*", "/member/:path*", "/login", "/register", "/api/:path*"],
 };
