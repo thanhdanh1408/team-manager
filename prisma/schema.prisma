@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -26,6 +26,7 @@ model User {
   logs          ActivityLog[]
   comments      TaskComment[]
   notifications Notification[]
+  teamMessages  TeamMessage[]
 }
 
 model Task {
@@ -96,3 +97,13 @@ model Notification {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model TeamMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+

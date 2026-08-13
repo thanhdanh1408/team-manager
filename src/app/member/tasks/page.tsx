@@ -16,6 +16,7 @@ import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Task } from "@/types";
+import { TaskThread } from "@/components/tasks/TaskThread";
 import {
   formatDate,
   priorityLabel,
@@ -48,6 +49,7 @@ export default function MemberTasksPage() {
   const [progressTask, setProgressTask] = useState<Task | null>(null);
   const [progressValue, setProgressValue] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [detailTask, setDetailTask] = useState<Task | null>(null);
 
   const myTasks = useMemo(
     () => (user ? getTasksByAssignee(user.id) : []),
@@ -211,9 +213,13 @@ export default function MemberTasksPage() {
                 className="rounded-xl border border-slate-200 bg-white p-4 sm:p-5"
               >
                 <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => setDetailTask(task)}
+                    className="text-sm font-semibold text-slate-900 hover:underline text-left cursor-pointer"
+                  >
                     {task.title}
-                  </h3>
+                  </button>
                   <Badge className={priorityColor[task.priority]}>
                     {priorityLabel[task.priority]}
                   </Badge>
@@ -304,6 +310,65 @@ export default function MemberTasksPage() {
           </div>
         </div>
       )}
+
+      {/* Task detail + Thread modal */}
+      <Modal
+        open={!!detailTask}
+        onClose={() => setDetailTask(null)}
+        title={detailTask?.title || "Chi tiết task"}
+        size="xl"
+      >
+        {detailTask && (
+          <div className="flex gap-5 min-h-0" style={{ height: "60vh" }}>
+            {/* Left: task info */}
+            <div className="w-64 shrink-0 space-y-4 overflow-y-auto pr-3 border-r border-slate-100">
+              <div className="flex gap-2 flex-wrap">
+                <Badge className={priorityColor[detailTask.priority]}>{priorityLabel[detailTask.priority]}</Badge>
+                <Badge className={statusColor[detailTask.status]}>{statusLabel[detailTask.status]}</Badge>
+                {isOverdue(detailTask.dueDate, detailTask.status) && (
+                  <Badge className="bg-red-50 text-red-700 border-red-200">Quá hạn</Badge>
+                )}
+              </div>
+              {detailTask.description && (
+                <p className="text-sm text-slate-600 leading-relaxed">{detailTask.description}</p>
+              )}
+              <div className="space-y-2 text-sm">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Hạn hoàn thành</p>
+                  <p className="text-slate-900">{formatDate(detailTask.dueDate)}</p>
+                </div>
+                {detailTask.status === "in_progress" && (
+                  <div>
+                    <p className="text-xs text-slate-500 mb-1">Tiến độ</p>
+                    <ProgressBar value={detailTask.progress} size="sm" />
+                    <button
+                      type="button"
+                      onClick={() => { setDetailTask(null); openProgress(detailTask); }}
+                      className="mt-2 text-xs text-violet-600 hover:underline cursor-pointer"
+                    >
+                      Cập nhật tiến độ →
+                    </button>
+                  </div>
+                )}
+              </div>
+              {detailTask.status === "rejection_pending" && (
+                <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                  <p className="text-xs font-medium text-orange-800 mb-1">Chờ Admin duyệt hủy</p>
+                  <p className="text-xs text-orange-700">{detailTask.rejectionReason}</p>
+                </div>
+              )}
+            </div>
+            {/* Right: thread */}
+            <div className="flex-1 min-w-0 overflow-hidden rounded-xl border border-slate-100">
+              <TaskThread
+                taskId={detailTask.id}
+                taskTitle={detailTask.title}
+              />
+            </div>
+          </div>
+        )}
+      </Modal>
+
 
       <Modal
         open={!!rejectTaskId}

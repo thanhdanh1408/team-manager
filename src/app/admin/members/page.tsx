@@ -1,25 +1,45 @@
 "use client";
 
 import { useState, FormEvent, useMemo, useEffect } from "react";
-import { Plus, Pencil, Trash2, Search, Users } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Users,
+  Star,
+  ClipboardList,
+  ChevronRight,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { TableSkeleton } from "@/components/ui/Skeleton";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useStore } from "@/hooks/useStore";
+import { useAuth } from "@/context/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { User } from "@/types";
 import { ApiError } from "@/lib/api-client";
+import {
+  formatDate,
+  priorityLabel,
+  priorityColor,
+  statusLabel,
+  statusColor,
+  cn,
+} from "@/lib/utils";
 
 const PAGE_SIZE = 10;
-
 
 const emptyForm = {
   name: "",
@@ -30,16 +50,25 @@ const emptyForm = {
   isActive: true,
 };
 
+type MemberTab = "tasks" | "evaluations";
+
 export default function MembersPage() {
+  const { user: currentUser } = useAuth();
   const {
     members,
+    tasks,
+    evaluations,
     loading,
     addUser,
     updateUser,
     deleteUser,
     getAverageRating,
     getTasksByAssignee,
+    getEvaluationsByMember,
+    addEvaluation,
+    deleteEvaluation,
   } = useStore();
+
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
   const [page, setPage] = useState(1);
@@ -49,6 +78,20 @@ export default function MembersPage() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Member detail state
+  const [detailMember, setDetailMember] = useState<User | null>(null);
+  const [memberTab, setMemberTab] = useState<MemberTab>("tasks");
+
+  // Evaluation form
+  const [evalForm, setEvalForm] = useState({
+    taskId: "",
+    rating: 5,
+    comment: "",
+  });
+  const [evalErrors, setEvalErrors] = useState<Record<string, string>>({});
+  const [evalSubmitting, setEvalSubmitting] = useState(false);
+  const [evalDeleteId, setEvalDeleteId] = useState<string | null>(null);
 
   const filtered = useMemo(
     () =>
@@ -68,11 +111,17 @@ export default function MembersPage() {
     pageSafe * PAGE_SIZE
   );
 
-  // Reset to page 1 when search changes or total pages decreases
   useEffect(() => {
     setPage((prev) => (prev > totalPages ? 1 : prev));
   }, [totalPages]);
 
+  // Sync detailMember when members list updates
+  useEffect(() => {
+    if (detailMember) {
+      const updated = members.find((m) => m.id === detailMember.id);
+      if (updated) setDetailMember(updated);
+    }
+  }, [members, detailMember]);
 
   const openCreate = () => {
     setEditing(null);
@@ -172,6 +221,63 @@ export default function MembersPage() {
     }
   };
 
+  // Evaluation handlers
+  const memberTasks = useMemo(
+    () =>
+      detailMember
+        ? tasks.filter(
+            (t) =>
+              t.assigneeId === detailMember.id &&
+              (t.status === "completed" || t.status === "in_progress")
+          )
+        : [],
+    [detailMember, tasks]
+  );
+
+  const memberEvals = useMemo(
+    () =>
+      detailMember ? getEvaluationsByMember(detailMember.id) : [],
+    [detailMember, getEvaluationsByMember]
+  );
+
+  const handleAddEval = async (e: FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!evalForm.comment.trim()) errs.comment = "Nhập nhận xét";
+    setEvalErrors(errs);
+    if (Object.keys(errs).length > 0 || !detailMember || !currentUser) return;
+
+    setEvalSubmitting(true);
+    try {
+      await addEvaluation({
+        memberId: detailMember.id,
+        taskId: evalForm.taskId || undefined,
+        rating: evalForm.rating,
+        comment: evalForm.comment.trim(),
+      });
+      toast.success("Đã thêm đánh giá");
+      setEvalForm({ taskId: "", rating: 5, comment: "" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Thêm đánh giá thất bại");
+    } finally {
+      setEvalSubmitting(false);
+    }
+  };
+
+  const handleDeleteEval = async () => {
+    if (!evalDeleteId) return;
+    setEvalSubmitting(true);
+    try {
+      await deleteEvaluation(evalDeleteId);
+      toast.success("Đã xóa đánh giá");
+      setEvalDeleteId(null);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Xóa thất bại");
+    } finally {
+      setEvalSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -256,24 +362,41 @@ export default function MembersPage() {
                   const memberTasks = getTasksByAssignee(m.id);
                   const rating = getAverageRating(m.id);
                   return (
-
                     <tr key={m.id} className="hover:bg-slate-50/50">
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDetailMember(m);
+                            setMemberTab("tasks");
+                          }}
+                          className="flex items-center gap-3 text-left group cursor-pointer"
+                        >
                           <Avatar name={m.name} size="sm" />
                           <div>
-                            <p className="font-medium text-slate-900">
+                            <p className="font-medium text-slate-900 group-hover:text-slate-700">
                               {m.name}
                             </p>
                             <p className="text-xs text-slate-500">{m.email}</p>
                           </div>
-                        </div>
+                          <ChevronRight
+                            size={14}
+                            className="text-slate-300 group-hover:text-slate-500 transition-colors"
+                          />
+                        </button>
                       </td>
                       <td className="px-5 py-3.5 text-slate-600 hidden md:table-cell">
                         {m.position}
                       </td>
                       <td className="px-5 py-3.5 text-slate-600 hidden lg:table-cell">
-                        {memberTasks.length} task
+                        <div className="flex gap-2">
+                          <span className="text-slate-700">
+                            {memberTasks.length} task
+                          </span>
+                          <span className="text-emerald-600 text-xs">
+                            ({memberTasks.filter((t) => t.status === "completed").length} xong)
+                          </span>
+                        </div>
                       </td>
                       <td className="px-5 py-3.5 hidden sm:table-cell">
                         {rating > 0 ? (
@@ -330,12 +453,261 @@ export default function MembersPage() {
         </div>
       )}
 
+      {/* ─── Member Detail Modal ─── */}
+      <Modal
+        open={!!detailMember}
+        onClose={() => setDetailMember(null)}
+        title={detailMember?.name || "Chi tiết thành viên"}
+        size="lg"
+      >
+        {detailMember && (
+          <div>
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-5 pb-4 border-b border-slate-100">
+              <Avatar name={detailMember.name} size="lg" />
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-semibold text-slate-900">
+                  {detailMember.name}
+                </h3>
+                <p className="text-sm text-slate-500">{detailMember.position}</p>
+                <p className="text-xs text-slate-400">{detailMember.email}</p>
+              </div>
+              <div className="text-right shrink-0">
+                {getAverageRating(detailMember.id) > 0 ? (
+                  <div>
+                    <p className="text-2xl font-bold text-amber-500">
+                      ★ {getAverageRating(detailMember.id).toFixed(1)}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {getEvaluationsByMember(detailMember.id).length} đánh giá
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400">Chưa đánh giá</p>
+                )}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex gap-1 mb-4 border-b border-slate-100 pb-0">
+              <button
+                type="button"
+                onClick={() => setMemberTab("tasks")}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
+                  memberTab === "tasks"
+                    ? "border-slate-900 text-slate-900"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <ClipboardList size={15} />
+                Công việc
+                <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                  {getTasksByAssignee(detailMember.id).length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMemberTab("evaluations")}
+                className={cn(
+                  "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
+                  memberTab === "evaluations"
+                    ? "border-slate-900 text-slate-900"
+                    : "border-transparent text-slate-500 hover:text-slate-700"
+                )}
+              >
+                <Star size={15} />
+                Đánh giá
+                <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">
+                  {getEvaluationsByMember(detailMember.id).length}
+                </span>
+              </button>
+            </div>
+
+            {/* Tab: Tasks */}
+            {memberTab === "tasks" && (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {getTasksByAssignee(detailMember.id).length === 0 ? (
+                  <p className="py-8 text-center text-sm text-slate-400">
+                    Chưa có task nào được giao
+                  </p>
+                ) : (
+                  getTasksByAssignee(detailMember.id).map((task) => (
+                    <div
+                      key={task.id}
+                      className="rounded-lg border border-slate-100 bg-slate-50 p-3"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <p className="text-sm font-medium text-slate-900 flex-1 min-w-0 truncate">
+                          {task.title}
+                        </p>
+                        <Badge className={priorityColor[task.priority]}>
+                          {priorityLabel[task.priority]}
+                        </Badge>
+                        <Badge className={statusColor[task.status]}>
+                          {statusLabel[task.status]}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-slate-500">
+                        <span>Hạn: {formatDate(task.dueDate)}</span>
+                        {task.status === "in_progress" && (
+                          <div className="flex items-center gap-2 flex-1">
+                            <ProgressBar value={task.progress} size="sm" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Tab: Evaluations */}
+            {memberTab === "evaluations" && (
+              <div className="space-y-4">
+                {/* Add evaluation form */}
+                <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4">
+                  <h4 className="text-sm font-semibold text-slate-800 mb-3">
+                    Thêm đánh giá mới
+                  </h4>
+                  <form onSubmit={handleAddEval} className="space-y-3">
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Task liên quan (tuỳ chọn)
+                      </label>
+                      <select
+                        value={evalForm.taskId}
+                        onChange={(e) =>
+                          setEvalForm({ ...evalForm, taskId: e.target.value })
+                        }
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+                      >
+                        <option value="">— Không chọn —</option>
+                        {memberTasks.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.title}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-slate-600">
+                        Điểm đánh giá
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setEvalForm({ ...evalForm, rating: s })}
+                            className="p-1 cursor-pointer"
+                            aria-label={`${s} sao`}
+                          >
+                            <Star
+                              size={22}
+                              className={
+                                s <= evalForm.rating
+                                  ? "fill-amber-400 text-amber-400"
+                                  : "text-slate-300 hover:text-amber-300"
+                              }
+                            />
+                          </button>
+                        ))}
+                        <span className="ml-2 text-sm text-slate-600">
+                          {evalForm.rating}/5
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <Textarea
+                        id="eval-comment"
+                        label="Nhận xét"
+                        value={evalForm.comment}
+                        onChange={(e) =>
+                          setEvalForm({ ...evalForm, comment: e.target.value })
+                        }
+                        error={evalErrors.comment}
+                        rows={2}
+                        placeholder="Nhận xét về hiệu suất làm việc..."
+                      />
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="submit" size="sm" disabled={evalSubmitting}>
+                        {evalSubmitting ? "Đang lưu..." : "Lưu đánh giá"}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* List evaluations */}
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {memberEvals.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-slate-400">
+                      Chưa có đánh giá nào
+                    </p>
+                  ) : (
+                    memberEvals.map((ev) => {
+                      const linkedTask = ev.taskId
+                        ? tasks.find((t) => t.id === ev.taskId)
+                        : null;
+                      return (
+                        <div
+                          key={ev.id}
+                          className="rounded-lg border border-slate-100 bg-white p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mb-1">
+                                {[1, 2, 3, 4, 5].map((s) => (
+                                  <Star
+                                    key={s}
+                                    size={13}
+                                    className={
+                                      s <= ev.rating
+                                        ? "fill-amber-400 text-amber-400"
+                                        : "text-slate-200"
+                                    }
+                                  />
+                                ))}
+                                <span className="text-xs text-slate-500 ml-1">
+                                  {formatDate(ev.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-700 leading-relaxed">
+                                {ev.comment}
+                              </p>
+                              {linkedTask && (
+                                <p className="text-xs text-slate-400 mt-1">
+                                  Task: {linkedTask.title}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEvalDeleteId(ev.id)}
+                              className="rounded-lg p-1 text-slate-300 hover:bg-red-50 hover:text-red-500 cursor-pointer shrink-0"
+                              aria-label="Xóa đánh giá"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Create/Edit Modal */}
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Sửa thành viên" : "Thêm thành viên"}
       >
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input
             id="name"
@@ -412,6 +784,7 @@ export default function MembersPage() {
         </form>
       </Modal>
 
+      {/* Delete member confirm */}
       <Modal
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
@@ -428,6 +801,30 @@ export default function MembersPage() {
           </Button>
           <Button variant="danger" onClick={handleDelete} disabled={submitting}>
             {submitting ? "Đang xóa..." : "Xóa"}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Delete eval confirm */}
+      <Modal
+        open={!!evalDeleteId}
+        onClose={() => setEvalDeleteId(null)}
+        title="Xóa đánh giá"
+        size="sm"
+      >
+        <p className="text-sm text-slate-600 mb-5">
+          Xóa đánh giá này? Hành động không thể hoàn tác.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={() => setEvalDeleteId(null)}>
+            Hủy
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleDeleteEval}
+            disabled={evalSubmitting}
+          >
+            {evalSubmitting ? "Đang xóa..." : "Xóa"}
           </Button>
         </div>
       </Modal>

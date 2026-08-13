@@ -9,7 +9,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
 export function Modal({
@@ -110,7 +110,8 @@ export function Modal({
           "relative w-full rounded-xl bg-white shadow-xl",
           size === "sm" && "max-w-md",
           size === "md" && "max-w-lg",
-          size === "lg" && "max-w-2xl"
+          size === "lg" && "max-w-2xl",
+          size === "xl" && "max-w-5xl"
         )}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
@@ -129,7 +130,7 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        <div className="px-5 py-4 max-h-[70vh] overflow-y-auto">{children}</div>
+        <div className={cn("px-5 py-4 overflow-y-auto", size === "xl" ? "max-h-[80vh]" : "max-h-[70vh]")}>{children}</div>
       </div>
     </div>
   );

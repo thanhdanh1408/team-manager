@@ -12,6 +12,7 @@ import {
   X,
   Download,
   FileDown,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -32,6 +33,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { Task, TaskPriority } from "@/types";
 import { ApiError } from "@/lib/api-client";
 import { exportTasksPDF, exportTasksCSV } from "@/lib/export";
+import { TaskThread } from "@/components/tasks/TaskThread";
 import {
   formatDate,
   priorityLabel,
@@ -81,6 +83,7 @@ function TasksContent() {
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [evalTaskId, setEvalTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     setStatusFilter(searchParams.get("status") || "all");
@@ -569,78 +572,99 @@ function TasksContent() {
         </form>
       </Modal>
 
-      {/* Detail Modal */}
+      {/* Detail Modal — xl with side-by-side layout */}
       <Modal
         open={!!detailTask}
         onClose={() => setDetailTask(null)}
-        title="Chi tiết task"
-        size="lg"
+        title={detailTask?.title || "Chi tiết task"}
+        size="xl"
       >
         {detailTask && (
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">
-                {detailTask.title}
-              </h3>
-              <div className="flex gap-2 mt-2 flex-wrap">
-                <Badge className={priorityColor[detailTask.priority]}>
-                  {priorityLabel[detailTask.priority]}
-                </Badge>
-                <Badge className={statusColor[detailTask.status]}>
-                  {statusLabel[detailTask.status]}
-                </Badge>
+          <div className="flex gap-5 min-h-0" style={{ height: "60vh" }}>
+            {/* Left: task info */}
+            <div className="w-72 shrink-0 space-y-4 overflow-y-auto pr-3 border-r border-slate-100">
+              <div>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge className={priorityColor[detailTask.priority]}>
+                    {priorityLabel[detailTask.priority]}
+                  </Badge>
+                  <Badge className={statusColor[detailTask.status]}>
+                    {statusLabel[detailTask.status]}
+                  </Badge>
+                </div>
               </div>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                {detailTask.description || "Không có mô tả"}
+              </p>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Người nhận</p>
+                  {detailTask.assigneeId ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar
+                        name={getUser(detailTask.assigneeId)?.name || "?"}
+                        size="sm"
+                      />
+                      <span className="text-slate-900">
+                        {getUser(detailTask.assigneeId)?.name}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-slate-400">Chưa giao</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Hạn</p>
+                  <p className="text-slate-900">{formatDate(detailTask.dueDate)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Tiến độ</p>
+                  <ProgressBar value={detailTask.progress} />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Ngày tạo</p>
+                  <p className="text-slate-900">{formatDate(detailTask.createdAt)}</p>
+                </div>
+              </div>
+              {detailTask.rejectionReason && (
+                <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
+                  <p className="text-xs font-medium text-orange-800 mb-1">Lý do từ chối</p>
+                  <p className="text-sm text-orange-700">{detailTask.rejectionReason}</p>
+                </div>
+              )}
             </div>
-            <p className="text-sm text-slate-600 leading-relaxed">
-              {detailTask.description || "Không có mô tả"}
-            </p>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Người nhận</p>
-                {detailTask.assigneeId ? (
-                  <div className="flex items-center gap-2">
-                    <Avatar
-                      name={getUser(detailTask.assigneeId)?.name || "?"}
-                      size="sm"
-                    />
-                    <span className="text-slate-900">
-                      {getUser(detailTask.assigneeId)?.name}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-slate-400">Chưa giao</span>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Hạn</p>
-                <p className="text-slate-900">
-                  {formatDate(detailTask.dueDate)}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Tiến độ</p>
-                <ProgressBar value={detailTask.progress} />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Ngày tạo</p>
-                <p className="text-slate-900">
-                  {formatDate(detailTask.createdAt)}
-                </p>
-              </div>
+
+            {/* Right: thread chat */}
+            <div className="flex-1 min-w-0 overflow-hidden rounded-xl border border-slate-100">
+              <TaskThread
+                taskId={detailTask.id}
+                taskTitle={detailTask.title}
+                canEvaluate={detailTask.assigneeId !== null}
+                onEvaluate={() => setEvalTaskId(detailTask.id)}
+              />
             </div>
-            {detailTask.rejectionReason && (
-              <div className="rounded-lg bg-orange-50 border border-orange-100 p-3">
-                <p className="text-xs font-medium text-orange-800 mb-1">
-                  Lý do từ chối
-                </p>
-                <p className="text-sm text-orange-700">
-                  {detailTask.rejectionReason}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </Modal>
+
+      {/* Eval quick modal */}
+      {evalTaskId && (() => {
+        const t = tasks.find(x => x.id === evalTaskId);
+        return (
+          <Modal
+            open={!!evalTaskId}
+            onClose={() => setEvalTaskId(null)}
+            title="Đánh giá thành viên"
+            size="sm"
+          >
+            <EvalQuickForm
+              taskId={evalTaskId}
+              assigneeId={t?.assigneeId || ""}
+              onDone={() => setEvalTaskId(null)}
+            />
+          </Modal>
+        );
+      })()}
 
       {/* Delete confirm */}
       <Modal
@@ -669,6 +693,78 @@ function TasksContent() {
   );
 }
 
+
+// ─── EvalQuickForm ─────────────────────────────────────────────────────────
+function EvalQuickForm({
+  taskId,
+  assigneeId,
+  onDone,
+}: {
+  taskId: string;
+  assigneeId: string;
+  onDone: () => void;
+}) {
+  const { addEvaluation, members } = useStore();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const member = members.find((m) => m.id === assigneeId);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!comment.trim()) { setError("Nhập nhận xét"); return; }
+    setLoading(true);
+    try {
+      await addEvaluation({ memberId: assigneeId, taskId, rating, comment: comment.trim() });
+      toast.success("Đã thêm đánh giá");
+      onDone();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Thất bại");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {member && (
+        <div className="flex items-center gap-3 rounded-lg bg-slate-50 p-3">
+          <Avatar name={member.name} size="sm" />
+          <div>
+            <p className="text-sm font-medium text-slate-900">{member.name}</p>
+            <p className="text-xs text-slate-500">{member.position}</p>
+          </div>
+        </div>
+      )}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-slate-700">Điểm đánh giá</label>
+        <div className="flex items-center gap-1">
+          {[1, 2, 3, 4, 5].map((s) => (
+            <button key={s} type="button" onClick={() => setRating(s)} className="p-1 cursor-pointer">
+              <Star size={24} className={cn(s <= rating ? "fill-amber-400 text-amber-400" : "text-slate-300 hover:text-amber-300")} />
+            </button>
+          ))}
+          <span className="ml-2 text-sm text-slate-600">{rating}/5</span>
+        </div>
+      </div>
+      <Textarea
+        id="eval-comment"
+        label="Nhận xét"
+        value={comment}
+        onChange={(e) => { setComment(e.target.value); setError(""); }}
+        error={error}
+        rows={3}
+        placeholder="Nhận xét về hiệu suất làm việc..."
+      />
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="outline" onClick={onDone}>Hủy</Button>
+        <Button type="submit" disabled={loading}>{loading ? "Đang lưu..." : "Lưu đánh giá"}</Button>
+      </div>
+    </form>
+  );
+}
+
 export default function TasksPage() {
   return (
     <Suspense
@@ -682,3 +778,4 @@ export default function TasksPage() {
     </Suspense>
   );
 }
+

@@ -6,13 +6,13 @@ import {
   LayoutDashboard,
   Users,
   CheckSquare,
-  Star,
   Activity,
   LogOut,
   Menu,
   X,
   ClipboardList,
   UserCircle,
+  MessageSquare,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -23,15 +23,15 @@ const adminLinks = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/members", label: "Thành viên", icon: Users },
   { href: "/admin/tasks", label: "Công việc", icon: CheckSquare },
-  { href: "/admin/evaluations", label: "Đánh giá", icon: Star },
-  { href: "/admin/activity", label: "Hoạt động", icon: Activity },
+  { href: "/admin/chat", label: "Team Chat", icon: MessageSquare },
+  { href: "/admin/activity", label: "Nhật ký", icon: Activity },
   { href: "/admin/profile", label: "Hồ sơ", icon: UserCircle },
 ];
 
 const memberLinks = [
   { href: "/member", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/member/tasks", label: "Công việc của tôi", icon: ClipboardList },
-  { href: "/member/evaluations", label: "Đánh giá", icon: Star },
+  { href: "/member/chat", label: "Team Chat", icon: MessageSquare },
   { href: "/member/profile", label: "Hồ sơ", icon: UserCircle },
 ];
 

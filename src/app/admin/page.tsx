@@ -14,7 +14,7 @@ import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+
 import { TaskStatusChart } from "@/components/charts/TaskStatusChart";
 import { TaskPriorityChart } from "@/components/charts/TaskPriorityChart";
 import { TeamPerformanceChart } from "@/components/charts/TeamPerformanceChart";
@@ -197,11 +197,7 @@ export default function AdminDashboard() {
                       <span>Hạn: {formatDate(task.dueDate)}</span>
                     </div>
                   </div>
-                  {task.status === "in_progress" && (
-                    <div className="w-24 shrink-0">
-                      <ProgressBar value={task.progress} size="sm" />
-                    </div>
-                  )}
+
                 </div>
               );
             })}

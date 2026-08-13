@@ -12,7 +12,7 @@ import { StatCard } from "@/components/layout/StatCard";
 import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+
 import {
   formatDate,
   priorityLabel,
@@ -131,11 +131,11 @@ export default function MemberDashboard() {
                     )}
                   </div>
                   <div className="flex items-center gap-4">
-                    <div className="flex-1 max-w-xs">
-                      <ProgressBar value={task.progress} size="sm" />
-                    </div>
                     <span className="text-xs text-slate-500">
                       Hạn: {formatDate(task.dueDate)}
+                    </span>
+                    <span className="text-xs font-medium text-violet-600">
+                      {task.progress}% hoàn thành
                     </span>
                   </div>
                 </div>
