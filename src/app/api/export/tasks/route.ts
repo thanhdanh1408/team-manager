@@ -5,7 +5,7 @@ import { getDocument, getDocuments, COLLECTIONS } from "@/lib/db";
 
 type FirestoreTask = {
   title: string; description: string; assigneeId: string | null;
-  priority: string; status: string; progress: number;
+  priority: string; status: string;
   dueDate: string; completedAt: string | null; createdAt: string;
   createdById: string;
 };
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
 
     const header = [
       "ID", "Tiêu đề", "Mô tả", "Người nhận", "Email",
-      "Người tạo", "Ưu tiên", "Trạng thái", "Tiến độ",
+      "Người tạo", "Ưu tiên", "Trạng thái",
       "Hạn chót", "Hoàn thành", "Tạo lúc",
     ].join(",");
 
@@ -69,7 +69,6 @@ export async function GET(req: NextRequest) {
           csvEscape(creator?.name || ""),
           t.priority,
           t.status,
-          t.progress,
           t.dueDate,
           t.completedAt || "",
           t.createdAt,

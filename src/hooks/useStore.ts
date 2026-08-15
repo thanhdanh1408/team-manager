@@ -6,7 +6,7 @@ import { api, Paginated } from "@/lib/api-client";
 import { POLL_INTERVAL_MS } from "@/constants";
 
 const emptyStats: Stats = {
-  totalMembers: 0, totalTasks: 0, pendingTasks: 0, inProgressTasks: 0,
+  totalMembers: 0, totalTasks: 0, pendingTasks: 0, inProgressTasks: 0, completionPending: 0,
   completedTasks: 0, rejectionPending: 0, cancelledTasks: 0, overdueTasks: 0,
 };
 
@@ -78,7 +78,7 @@ export function useStore() {
   const deleteUser = async (id: string) => { await api.delete(`/api/users/${id}`); await refresh({ silent: true }); return true; };
 
   // Tasks
-  const addTask = async (data: { title: string; description: string; assigneeId: string | null; priority: TaskPriority; dueDate: string }) => {
+  const addTask = async (data: { title: string; description: string; assigneeId: string; priority: TaskPriority; dueDate: string }) => {
     const task = await api.post<Task>("/api/tasks", data); await refresh({ silent: true }); return task;
   };
   const updateTask = async (id: string, data: Partial<Task>) => {
@@ -89,8 +89,16 @@ export function useStore() {
     const task = await api.post<Task>(`/api/tasks/${taskId}/actions`, { action: "reject", reason });
     await refresh({ silent: true }); return task;
   };
-  const completeTask = async (taskId: string) => {
-    const task = await api.post<Task>(`/api/tasks/${taskId}/actions`, { action: "complete" });
+  const requestCompletion = async (taskId: string) => {
+    const task = await api.post<Task>(`/api/tasks/${taskId}/actions`, { action: "request_completion" });
+    await refresh({ silent: true }); return task;
+  };
+  const approveCompletion = async (taskId: string) => {
+    const task = await api.post<Task>(`/api/tasks/${taskId}/actions`, { action: "approve_completion" });
+    await refresh({ silent: true }); return task;
+  };
+  const denyCompletion = async (taskId: string) => {
+    const task = await api.post<Task>(`/api/tasks/${taskId}/actions`, { action: "deny_completion" });
     await refresh({ silent: true }); return task;
   };
   const approveRejection = async (taskId: string) => {
@@ -141,7 +149,7 @@ export function useStore() {
     const formData = new FormData();
     formData.append("file", file);
     const res = await fetch("/api/upload", { method: "POST", body: formData, credentials: "include" });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error((err as { error?: string }).error || "Upload that bai"); }
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error((err as { error?: string }).error || "Tải tệp lên thất bại"); }
     return res.json() as Promise<{ url: string; name: string; type: "image" | "file"; size: number }>;
   };
 
@@ -150,7 +158,8 @@ export function useStore() {
     getUser: findUser, getTask, getTasksByAssignee, getEvaluationsByMember, getAverageRating,
     addUser, updateUser, deleteUser,
     addTask, updateTask, deleteTask,
-    rejectTask, completeTask, approveRejection, denyRejection, reassignTask,
+    rejectTask, requestCompletion, approveCompletion, denyCompletion,
+    approveRejection, denyRejection, reassignTask,
     submitReport, getReports,
     addEvaluation, deleteEvaluation,
     getConversations, createConversation, getMessages, sendMessage, uploadFile,

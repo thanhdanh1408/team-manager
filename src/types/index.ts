@@ -4,6 +4,7 @@ export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export type TaskStatus =
   | "in_progress"
+  | "completion_pending"
   | "completed"
   | "rejection_pending"
   | "cancelled";
@@ -28,7 +29,6 @@ export interface Task {
   createdById: string;
   priority: TaskPriority;
   status: TaskStatus;
-  progress: number;
   dueDate: string;
   createdAt: string;
   updatedAt: string;
@@ -95,6 +95,7 @@ export interface Stats {
   totalTasks: number;
   pendingTasks: number;
   inProgressTasks: number;
+  completionPending: number;
   completedTasks: number;
   rejectionPending: number;
   cancelledTasks: number;

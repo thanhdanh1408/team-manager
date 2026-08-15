@@ -48,7 +48,7 @@ export const userUpdateSchema = z.object({
 export const taskCreateSchema = z.object({
   title: z.string().min(1, "Tiêu đề bắt buộc").max(200),
   description: z.string().max(2000).default(""),
-  assigneeId: z.string().nullable().optional(),
+  assigneeId: z.string().min(1, "Vui lòng chọn thành viên"),
   priority: z.enum(["low", "medium", "high", "urgent"]).default("medium"),
   dueDate: z
     .string()
@@ -96,7 +96,7 @@ export const bulkTaskSchema = z.object({
 export const taskUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
-  assigneeId: z.string().nullable().optional(),
+  assigneeId: z.string().min(1, "Vui lòng chọn thành viên").optional(),
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
   dueDate: z
     .string()
@@ -114,17 +114,12 @@ export const taskUpdateSchema = z.object({
       return date >= today;
     }, "Hạn chót phải từ hôm nay trở đi"),
   status: z
-    .enum(["in_progress", "completed", "rejection_pending", "cancelled"])
+    .enum(["in_progress", "completion_pending", "completed", "rejection_pending", "cancelled"])
     .optional(),
-  progress: z.number().min(0).max(100).optional(),
 });
 
 export const rejectTaskSchema = z.object({
   reason: z.string().min(5, "Lý do tối thiểu 5 ký tự").max(500),
-});
-
-export const progressSchema = z.object({
-  progress: z.number().min(0).max(100),
 });
 
 export const taskReportSchema = z.object({

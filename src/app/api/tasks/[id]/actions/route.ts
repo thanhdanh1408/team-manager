@@ -4,13 +4,13 @@ import { rejectTaskSchema, reassignSchema } from "@/lib/validations";
 import { handleApiError, jsonError, jsonOk, toTaskDto } from "@/lib/api-helpers";
 import { notifyUser, notifyTaskAssigned } from "@/lib/notifications";
 import { applyRateLimit } from "@/lib/middleware";
-import { getDocument, createDocument, updateDocument, COLLECTIONS } from "@/lib/db";
+import { getDocument, getDocuments, createDocument, updateDocument, COLLECTIONS } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
 type FirestoreTask = {
   title: string; description: string; assigneeId: string | null;
   createdById: string; priority: string; status: string;
-  progress: number; dueDate: string; rejectionReason: string | null;
+  dueDate: string; rejectionReason: string | null;
   completedAt: string | null; createdAt: string; updatedAt: string;
 };
 type TDto = Parameters<typeof toTaskDto>[0];
@@ -28,7 +28,10 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     switch (action) {
       case "reject": {
-        if (task.assigneeId !== user.id || task.status !== "in_progress")
+        if (
+          task.assigneeId !== user.id ||
+          !["in_progress", "completion_pending"].includes(task.status)
+        )
           return jsonError("Không thể yêu cầu hủy task này", 400);
         const { reason } = rejectTaskSchema.parse(body);
         await updateDocument(COLLECTIONS.TASKS, id, {
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest, { params }: Params) {
         requireAdmin(user);
         if (task.status !== "rejection_pending")
           return jsonError("Task không ở trạng thái chờ duyệt hủy", 400);
-        await updateDocument(COLLECTIONS.TASKS, id, { status: "cancelled", progress: 0 });
+        await updateDocument(COLLECTIONS.TASKS, id, { status: "cancelled" });
         await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
           userId: user.id,
           action: "approve_rejection",
@@ -78,27 +81,79 @@ export async function POST(req: NextRequest, { params }: Params) {
         });
         return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-      case "complete": {
-        // Member marks their own task as done
+      case "request_completion": {
         if (task.assigneeId !== user.id || task.status !== "in_progress")
-          return jsonError("Không thể hoàn thành task này", 400);
+          return jsonError("Không thể gửi duyệt task này", 400);
+        const reports = await getDocuments(
+          COLLECTIONS.TASK_REPORTS,
+          [{ field: "taskId", op: "==", value: id }]
+        );
+        if (reports.length === 0) {
+          return jsonError("Vui lòng nộp ít nhất một báo cáo trước khi gửi duyệt", 400);
+        }
         await updateDocument(COLLECTIONS.TASKS, id, {
-          status: "completed",
-          progress: 100,
-          completedAt: new Date().toISOString(),
+          status: "completion_pending",
         });
         await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
           userId: user.id,
-          action: "complete_task",
-          detail: `Hoàn thành task: ${task.title}`,
+          action: "request_completion",
+          detail: `Gửi duyệt hoàn thành task: ${task.title}`,
         });
         if (task.createdById) {
           await notifyUser({
             userId: task.createdById,
-            title: "Task đã hoàn thành",
-            message: `${user.name} đã hoàn thành: ${task.title}`,
-            type: "success",
+            title: "Yêu cầu duyệt hoàn thành",
+            message: `${user.name} đã gửi báo cáo và chờ duyệt: ${task.title}`,
+            type: "info",
             link: "/admin/tasks",
+          });
+        }
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
+      }
+      case "approve_completion": {
+        requireAdmin(user);
+        if (task.status !== "completion_pending")
+          return jsonError("Task không ở trạng thái chờ duyệt hoàn thành", 400);
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          status: "completed",
+          completedAt: new Date().toISOString(),
+        });
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "approve_completion",
+          detail: `Duyệt hoàn thành task: ${task.title}`,
+        });
+        if (task.assigneeId) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: "Task đã được duyệt hoàn thành",
+            message: `Admin đã duyệt hoàn thành: ${task.title}`,
+            type: "success",
+            link: "/member/tasks",
+          });
+        }
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
+      }
+      case "deny_completion": {
+        requireAdmin(user);
+        if (task.status !== "completion_pending")
+          return jsonError("Task không ở trạng thái chờ duyệt hoàn thành", 400);
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          status: "in_progress",
+          completedAt: null,
+        });
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "deny_completion",
+          detail: `Yêu cầu tiếp tục task: ${task.title}`,
+        });
+        if (task.assigneeId) {
+          await notifyUser({
+            userId: task.assigneeId,
+            title: "Task cần tiếp tục thực hiện",
+            message: `Admin chưa duyệt hoàn thành: ${task.title}`,
+            type: "warning",
+            link: "/member/tasks",
           });
         }
         return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
@@ -111,7 +166,6 @@ export async function POST(req: NextRequest, { params }: Params) {
         await updateDocument(COLLECTIONS.TASKS, id, {
           assigneeId,
           status: "in_progress",
-          progress: 0,
           rejectionReason: null,
         });
         await createDocument(COLLECTIONS.ACTIVITY_LOGS, {

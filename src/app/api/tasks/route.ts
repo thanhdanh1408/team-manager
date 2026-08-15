@@ -50,7 +50,6 @@ export async function GET(req: NextRequest) {
       createdById: string;
       priority: string;
       status: string;
-      progress: number;
       dueDate: string;
       rejectionReason: string | null;
       completedAt: string | null;
@@ -101,11 +100,10 @@ export async function POST(req: NextRequest) {
     const task = await createDocument(COLLECTIONS.TASKS, {
       title: data.title.trim(),
       description: data.description || "",
-      assigneeId: data.assigneeId || null,
+      assigneeId: data.assigneeId,
       createdById: admin.id,
       priority: data.priority,
       status: "in_progress",
-      progress: 0,
       dueDate: new Date(data.dueDate).toISOString(),
       rejectionReason: null,
       completedAt: null,

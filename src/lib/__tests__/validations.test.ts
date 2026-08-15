@@ -112,6 +112,7 @@ describe("Validation Schemas", () => {
       
       const data = {
         title: "Test Task",
+        assigneeId: "user-123",
         dueDate: today.toISOString(),
       };
       expect(() => taskCreateSchema.parse(data)).not.toThrow();

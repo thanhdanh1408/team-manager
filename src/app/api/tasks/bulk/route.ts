@@ -40,8 +40,7 @@ export async function POST(req: NextRequest) {
         const task = await getDocument<{ title: string }>(COLLECTIONS.TASKS, taskId);
         await updateDocument(COLLECTIONS.TASKS, taskId, {
           assigneeId: data.assigneeId,
-          status: "pending",
-          progress: 0,
+          status: "in_progress",
           rejectionReason: null,
           completedAt: null,
         });

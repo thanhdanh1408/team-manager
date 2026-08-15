@@ -45,7 +45,7 @@ export function TeamPerformanceChart({ data }: TeamPerformanceChartProps) {
         <Legend />
         <Bar dataKey="completed" name="Hoàn thành" fill="#10b981" radius={[4, 4, 0, 0]} />
         <Bar dataKey="inProgress" name="Đang làm" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="pending" name="Chờ xử lý" fill="#64748b" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="pending" name="Chờ duyệt" fill="#64748b" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );

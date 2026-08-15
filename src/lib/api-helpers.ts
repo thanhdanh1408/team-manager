@@ -69,7 +69,6 @@ export function toTaskDto(task: {
   createdById: string;
   priority: string;
   status: string;
-  progress: number;
   dueDate: Date | string;
   rejectionReason: string | null;
   completedAt: Date | string | null;
@@ -84,12 +83,11 @@ export function toTaskDto(task: {
     createdById: task.createdById,
     priority: task.priority as "low" | "medium" | "high" | "urgent",
     status: task.status as
-      | "pending"
       | "in_progress"
+      | "completion_pending"
       | "completed"
       | "rejection_pending"
       | "cancelled",
-    progress: task.progress,
     dueDate: toIso(task.dueDate),
     rejectionReason: task.rejectionReason ?? undefined,
     completedAt: task.completedAt ? toIso(task.completedAt) : undefined,

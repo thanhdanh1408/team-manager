@@ -3,6 +3,7 @@ import { getAuthUser, requireAuth } from "@/lib/auth";
 import { taskReportSchema } from "@/lib/validations";
 import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import { getDocument, getDocuments, createDocument, COLLECTIONS } from "@/lib/db";
+import { notifyUser } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string }> };
 type FirestoreTask = { assigneeId: string | null; title: string; status: string };
@@ -43,8 +44,11 @@ export async function POST(req: NextRequest, { params }: Params) {
     const task = await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id);
     if (!task) return jsonError("Không tìm thấy task", 404);
 
-    if (user.role === "member" && task.assigneeId !== user.id) {
+    if (user.role !== "member" || task.assigneeId !== user.id) {
       return jsonError("Bạn không được giao task này", 403);
+    }
+    if (task.status !== "in_progress") {
+      return jsonError("Chỉ có thể nộp báo cáo khi task đang thực hiện", 400);
     }
 
     const body = await req.json();
@@ -61,6 +65,17 @@ export async function POST(req: NextRequest, { params }: Params) {
       action: "submit_report",
       detail: `Nộp báo cáo cho task: ${task.title}`,
     });
+
+    const fullTask = await getDocument<FirestoreTask & { createdById?: string }>(COLLECTIONS.TASKS, id);
+    if (fullTask?.createdById) {
+      await notifyUser({
+        userId: fullTask.createdById,
+        title: "Báo cáo task mới",
+        message: `${user.name} đã nộp báo cáo cho: ${task.title}`,
+        type: "info",
+        link: "/admin/tasks",
+      });
+    }
 
     return jsonOk(report, 201);
   } catch (err) {

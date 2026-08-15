@@ -42,10 +42,12 @@ export default function AdminDashboard() {
 
   const recentLogs = logs.slice(0, 8);
   const rejectionTasks = tasks.filter((t) => t.status === "rejection_pending");
+  const completionTasks = tasks.filter((t) => t.status === "completion_pending");
 
   // Chart data
   const statusChartData = useMemo(() => [
     { name: "Đang làm", value: tasks.filter(t => t.status === "in_progress").length, color: "#8b5cf6" },
+    { name: "Chờ duyệt hoàn thành", value: tasks.filter(t => t.status === "completion_pending").length, color: "#6366f1" },
     { name: "Hoàn thành", value: tasks.filter(t => t.status === "completed").length, color: "#10b981" },
     { name: "Chờ duyệt hủy", value: tasks.filter(t => t.status === "rejection_pending").length, color: "#f59e0b" },
     { name: "Đã hủy", value: tasks.filter(t => t.status === "cancelled").length, color: "#ef4444" },
@@ -67,7 +69,7 @@ export default function AdminDashboard() {
           name: member.name.split(" ").slice(-1)[0], // Last name only
           completed: memberTasks.filter(t => t.status === "completed").length,
           inProgress: memberTasks.filter(t => t.status === "in_progress").length,
-          pending: memberTasks.filter(t => t.status === "rejection_pending").length,
+          pending: memberTasks.filter(t => t.status === "completion_pending").length,
         };
       })
       .slice(0, 8); // Top 8 members
@@ -84,10 +86,28 @@ export default function AdminDashboard() {
         <StatCard label="Thành viên" value={stats.totalMembers ?? 0} icon={Users} color="blue" />
         <StatCard label="Tổng task" value={stats.totalTasks} icon={CheckSquare} color="slate" />
         <StatCard label="Đang làm" value={stats.inProgressTasks} icon={Clock} color="violet" />
-        <StatCard label="Hoàn thành" value={stats.completedTasks} icon={CheckCircle2} color="emerald" />
+        <StatCard label="Chờ duyệt" value={stats.completionPending} icon={CheckCircle2} color="violet" />
         <StatCard label="Chờ duyệt hủy" value={stats.rejectionPending} icon={XCircle} color="amber" />
         <StatCard label="Quá hạn" value={stats.overdueTasks ?? 0} icon={AlertTriangle} color="red" />
       </div>
+
+      {completionTasks.length > 0 && (
+        <div className="mb-6 rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-violet-800">
+                Task chờ duyệt hoàn thành ({completionTasks.length})
+              </h3>
+              <p className="mt-1 text-xs text-violet-700">
+                Thành viên đã nộp báo cáo và đang chờ Admin đánh giá.
+              </p>
+            </div>
+            <Link href="/admin/tasks?status=completion_pending" className="text-xs font-medium text-violet-700 hover:underline">
+              Xem và duyệt
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Rejection alerts */}
       {rejectionTasks.length > 0 && (

@@ -24,7 +24,6 @@ import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { TableSkeleton } from "@/components/ui/Skeleton";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
@@ -227,7 +226,7 @@ export default function MembersPage() {
         ? tasks.filter(
             (t) =>
               t.assigneeId === detailMember.id &&
-              (t.status === "completed" || t.status === "in_progress")
+              (["completed", "in_progress", "completion_pending"] as string[]).includes(t.status)
           )
         : [],
     [detailMember, tasks]
@@ -549,11 +548,6 @@ export default function MembersPage() {
                       </div>
                       <div className="flex items-center gap-4 text-xs text-slate-500">
                         <span>Hạn: {formatDate(task.dueDate)}</span>
-                        {task.status === "in_progress" && (
-                          <div className="flex items-center gap-2 flex-1">
-                            <ProgressBar value={task.progress} size="sm" />
-                          </div>
-                        )}
                       </div>
                     </div>
                   ))

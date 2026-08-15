@@ -108,7 +108,7 @@ export default function EvaluationsPage() {
     ? tasks.filter(
         (t) =>
           t.assigneeId === form.memberId &&
-          (t.status === "completed" || t.status === "in_progress")
+          (["completed", "in_progress", "completion_pending"] as string[]).includes(t.status)
       )
     : [];
 

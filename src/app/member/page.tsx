@@ -32,6 +32,7 @@ export default function MemberDashboard() {
   const myTasks = getTasksByAssignee(user.id);
   const inProgress = myTasks.filter((t) => t.status === "in_progress");
   const completed = myTasks.filter((t) => t.status === "completed");
+  const completionPending = myTasks.filter((t) => t.status === "completion_pending");
   const rejectionPending = myTasks.filter((t) => t.status === "rejection_pending");
   const avgRating = getAverageRating(user.id);
   const recentEvals = getEvaluationsByMember(user.id).slice(0, 3);
@@ -43,8 +44,9 @@ export default function MemberDashboard() {
         description="Tổng quan công việc của bạn"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         <StatCard label="Đang làm" value={inProgress.length} icon={Clock} color="blue" />
+        <StatCard label="Chờ duyệt" value={completionPending.length} icon={CheckCircle2} color="violet" />
         <StatCard label="Hoàn thành" value={completed.length} icon={CheckCircle2} color="emerald" />
         <StatCard label="Chờ duyệt hủy" value={rejectionPending.length} icon={AlertCircle} color="amber" />
         <StatCard
@@ -133,9 +135,6 @@ export default function MemberDashboard() {
                   <div className="flex items-center gap-4">
                     <span className="text-xs text-slate-500">
                       Hạn: {formatDate(task.dueDate)}
-                    </span>
-                    <span className="text-xs font-medium text-violet-600">
-                      {task.progress}% hoàn thành
                     </span>
                   </div>
                 </div>

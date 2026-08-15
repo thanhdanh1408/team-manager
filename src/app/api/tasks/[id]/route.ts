@@ -23,7 +23,6 @@ type FirestoreTask = {
   createdById: string;
   priority: string;
   status: string;
-  progress: number;
   dueDate: string;
   rejectionReason: string | null;
   completedAt: string | null;
@@ -64,7 +63,6 @@ export async function PUT(req: NextRequest, { params }: Params) {
     if (data.dueDate !== undefined)
       updateData.dueDate = new Date(data.dueDate).toISOString();
     if (data.status !== undefined) updateData.status = data.status;
-    if (data.progress !== undefined) updateData.progress = data.progress;
 
     await updateDocument(COLLECTIONS.TASKS, id, updateData);
     const updated = await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id);

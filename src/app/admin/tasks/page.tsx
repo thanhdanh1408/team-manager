@@ -24,7 +24,6 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Pagination } from "@/components/ui/Pagination";
 import { TableSkeleton } from "@/components/ui/Skeleton";
@@ -68,6 +67,8 @@ function TasksContent() {
     deleteTask,
     approveRejection,
     denyRejection,
+    approveCompletion,
+    denyCompletion,
     getReports,
   } = useStore();
 
@@ -152,6 +153,7 @@ function TasksContent() {
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.title.trim()) e.title = "Bắt buộc";
+    if (!form.assigneeId) e.assigneeId = "Vui lòng chọn thành viên";
     if (!form.dueDate) e.dueDate = "Bắt buộc";
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -166,7 +168,7 @@ function TasksContent() {
         await updateTask(editing.id, {
           title: form.title.trim(),
           description: form.description.trim(),
-          assigneeId: form.assigneeId || null,
+          assigneeId: form.assigneeId,
           priority: form.priority,
           dueDate: new Date(form.dueDate).toISOString(),
         });
@@ -175,7 +177,7 @@ function TasksContent() {
         await addTask({
           title: form.title.trim(),
           description: form.description.trim(),
-          assigneeId: form.assigneeId || null,
+          assigneeId: form.assigneeId,
           priority: form.priority,
           dueDate: new Date(form.dueDate).toISOString(),
         });
@@ -216,9 +218,27 @@ function TasksContent() {
   const handleDeny = async (id: string) => {
     try {
       await denyRejection(id);
-      toast.success("Đã từ chối yêu cầu hủy — task trở lại chờ xác nhận");
+      toast.success("Đã từ chối yêu cầu hủy — task tiếp tục thực hiện");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Thất bại");
+    }
+  };
+
+  const handleApproveCompletion = async (id: string) => {
+    try {
+      await approveCompletion(id);
+      toast.success("Đã duyệt hoàn thành task");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể duyệt hoàn thành");
+    }
+  };
+
+  const handleDenyCompletion = async (id: string) => {
+    try {
+      await denyCompletion(id);
+      toast.success("Đã yêu cầu thành viên tiếp tục thực hiện");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Không thể từ chối hoàn thành");
     }
   };
 
@@ -254,8 +274,8 @@ function TasksContent() {
 
   const statusTabs: { value: string; label: string }[] = [
     { value: "all", label: "Tất cả" },
-    { value: "pending", label: "Chờ phản hồi" },
     { value: "in_progress", label: "Đang làm" },
+    { value: "completion_pending", label: "Chờ duyệt hoàn thành" },
     { value: "completed", label: "Hoàn thành" },
     { value: "rejection_pending", label: "Chờ duyệt hủy" },
     { value: "cancelled", label: "Đã hủy" },
@@ -427,11 +447,6 @@ function TasksContent() {
                         <span className="text-slate-400">Chưa giao</span>
                       )}
                       <span>Hạn: {formatDate(task.dueDate)}</span>
-                      {task.status === "in_progress" && (
-                        <div className="w-28">
-                          <ProgressBar value={task.progress} size="sm" />
-                        </div>
-                      )}
                     </div>
 
                     {task.status === "rejection_pending" && (
@@ -454,6 +469,24 @@ function TasksContent() {
                             onClick={() => handleDeny(task.id)}
                           >
                             <X size={14} /> Từ chối yêu cầu
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {task.status === "completion_pending" && (
+                      <div className="mt-3 rounded-lg bg-violet-50 border border-violet-100 p-3">
+                        <p className="text-xs text-violet-800 mb-2">
+                          Thành viên đã nộp báo cáo và đang chờ Admin duyệt hoàn thành.
+                        </p>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button size="sm" variant="success" onClick={() => handleApproveCompletion(task.id)}>
+                            <Check size={14} /> Duyệt hoàn thành
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleDenyCompletion(task.id)}>
+                            <X size={14} /> Yêu cầu làm tiếp
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => handleViewReports(task)}>
+                            <Eye size={14} /> Xem báo cáo
                           </Button>
                         </div>
                       </div>
@@ -538,8 +571,9 @@ function TasksContent() {
               onChange={(e) =>
                 setForm({ ...form, assigneeId: e.target.value })
               }
+              error={errors.assigneeId}
               options={[
-                { value: "", label: "— Chưa giao —" },
+                { value: "", label: "— Chọn thành viên —" },
                 ...members
                   .filter((m) => m.isActive)
                   .map((m) => ({
@@ -639,10 +673,6 @@ function TasksContent() {
                   <p className="text-slate-900">{formatDate(detailTask.dueDate)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 mb-1">Tiến độ</p>
-                  <ProgressBar value={detailTask.progress} />
-                </div>
-                <div>
                   <p className="text-xs text-slate-500 mb-1">Ngày tạo</p>
                   <p className="text-slate-900">{formatDate(detailTask.createdAt)}</p>
                 </div>
@@ -735,6 +765,25 @@ function TasksContent() {
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.content}</p>
               </div>
             ))}
+          </div>
+        )}
+        {viewReportsTask?.assigneeId && (
+          <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const taskId = viewReportsTask.id;
+                setViewReportsTask(null);
+                setEvalTaskId(taskId);
+              }}
+            >
+              <Star size={14} /> Đánh giá thành viên
+            </Button>
+            {viewReportsTask.status === "completion_pending" && (
+              <Button onClick={() => handleApproveCompletion(viewReportsTask.id)}>
+                <Check size={14} /> Duyệt hoàn thành
+              </Button>
+            )}
           </div>
         )}
       </Modal>

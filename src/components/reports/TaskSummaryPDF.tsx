@@ -132,7 +132,7 @@ interface TaskSummaryPDFProps {
 export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) {
   const stats = {
     total: tasks.length,
-    pending: tasks.filter((t) => t.status === "rejection_pending").length,
+    pending: tasks.filter((t) => t.status === "completion_pending").length,
     inProgress: tasks.filter((t) => t.status === "in_progress").length,
     completed: tasks.filter((t) => t.status === "completed").length,
     cancelled: tasks.filter((t) => t.status === "cancelled").length,
@@ -150,8 +150,8 @@ export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) 
 
   const getStatusText = (status: string) => {
     const map: Record<string, string> = {
-      pending: "Chờ phản hồi",
       in_progress: "Đang làm",
+      completion_pending: "Chờ duyệt hoàn thành",
       completed: "Hoàn thành",
       rejection_pending: "Chờ duyệt hủy",
       cancelled: "Đã hủy",
@@ -192,7 +192,7 @@ export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) 
               <Text style={styles.statValue}>{stats.total}</Text>
             </View>
             <View style={styles.statBox}>
-              <Text style={styles.statLabel}>Chờ phản hồi</Text>
+              <Text style={styles.statLabel}>Chờ duyệt hoàn thành</Text>
               <Text style={styles.statValue}>{stats.pending}</Text>
             </View>
             <View style={styles.statBox}>
@@ -220,7 +220,6 @@ export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) 
               <Text style={styles.col2}>Người nhận</Text>
               <Text style={styles.col3}>Ưu tiên</Text>
               <Text style={styles.col4}>Trạng thái</Text>
-              <Text style={styles.col5}>Tiến độ</Text>
               <Text style={styles.col6}>Hạn chót</Text>
               <Text style={styles.col7}>Tạo lúc</Text>
             </View>
@@ -234,7 +233,6 @@ export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) 
                   <Text style={styles.col2}>{assignee?.name || "Chưa giao"}</Text>
                   <Text style={styles.col3}>{getPriorityText(task.priority)}</Text>
                   <Text style={styles.col4}>{getStatusText(task.status)}</Text>
-                  <Text style={styles.col5}>{task.progress}%</Text>
                   <Text style={styles.col6}>{formatDate(task.dueDate)}</Text>
                   <Text style={styles.col7}>{formatDate(task.createdAt)}</Text>
                 </View>
