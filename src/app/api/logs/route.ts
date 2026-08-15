@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAdmin } from "@/lib/auth";
 import { handleApiError, jsonOk, toLogDto } from "@/lib/api-helpers";
+import { getDocuments, countDocuments, COLLECTIONS } from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
@@ -14,24 +14,26 @@ export async function GET(req: NextRequest) {
     );
 
     const [total, logs] = await Promise.all([
-      prisma.activityLog.count(),
-      prisma.activityLog.findMany({
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
+      countDocuments(COLLECTIONS.ACTIVITY_LOGS, []),
+      getDocuments<{
+        userId: string; action: string; detail: string; createdAt: string;
+      }>(COLLECTIONS.ACTIVITY_LOGS, [], {
+        orderByField: "createdAt",
+        orderDirection: "desc",
+        offset: (page - 1) * pageSize,
+        limitCount: pageSize,
       }),
     ]);
 
     return jsonOk({
-      data: logs.map(toLogDto),
+      data: logs.map((l) => toLogDto(l as Parameters<typeof toLogDto>[0])),
       pagination: {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
+        page, pageSize, total, totalPages: Math.ceil(total / pageSize),
       },
     });
   } catch (err) {
     return handleApiError(err);
   }
 }
+
+

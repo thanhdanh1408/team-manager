@@ -13,6 +13,7 @@ import {
   Download,
   FileDown,
   Star,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -30,7 +31,7 @@ import { TableSkeleton } from "@/components/ui/Skeleton";
 import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { Task, TaskPriority } from "@/types";
+import { Task, TaskPriority, TaskReport } from "@/types";
 import { ApiError } from "@/lib/api-client";
 import { exportTasksPDF, exportTasksCSV } from "@/lib/export";
 import { TaskThread } from "@/components/tasks/TaskThread";
@@ -67,6 +68,7 @@ function TasksContent() {
     deleteTask,
     approveRejection,
     denyRejection,
+    getReports,
   } = useStore();
 
   const initialStatus = searchParams.get("status") || "all";
@@ -84,6 +86,9 @@ function TasksContent() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [evalTaskId, setEvalTaskId] = useState<string | null>(null);
+  const [viewReportsTask, setViewReportsTask] = useState<Task | null>(null);
+  const [taskReports, setTaskReports] = useState<TaskReport[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(false);
 
   useEffect(() => {
     setStatusFilter(searchParams.get("status") || "all");
@@ -215,6 +220,14 @@ function TasksContent() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Thất bại");
     }
+  };
+
+  const handleViewReports = async (task: Task) => {
+    setViewReportsTask(task);
+    setReportsLoading(true);
+    try { const data = await getReports(task.id); setTaskReports(data); }
+    catch { setTaskReports([]); }
+    finally { setReportsLoading(false); }
   };
 
   const handleExportPDF = async () => {
@@ -448,6 +461,14 @@ function TasksContent() {
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleViewReports(task)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-600 cursor-pointer"
+                      title="Xem báo cáo"
+                    >
+                      <Eye size={15} />
+                    </button>
                     <button
                       type="button"
                       onClick={() => openEdit(task)}
@@ -688,6 +709,34 @@ function TasksContent() {
             {submitting ? "Đang xóa..." : "Xóa"}
           </Button>
         </div>
+      </Modal>
+
+      {/* View Reports Modal */}
+      <Modal
+        open={!!viewReportsTask}
+        onClose={() => { setViewReportsTask(null); setTaskReports([]); }}
+        title={`Báo cáo: ${viewReportsTask?.title}`}
+        size="md"
+      >
+        {reportsLoading ? (
+          <div className="py-8 flex items-center justify-center">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+          </div>
+        ) : taskReports.length === 0 ? (
+          <p className="py-6 text-center text-sm text-slate-400">Thành viên chưa nộp báo cáo nào</p>
+        ) : (
+          <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+            {taskReports.map((r, i) => (
+              <div key={r.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium text-slate-700">Báo cáo #{i + 1}</span>
+                  <span className="text-xs text-slate-400">{formatDate(r.createdAt)}</span>
+                </div>
+                <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -57,7 +57,6 @@ export const priorityColor: Record<TaskPriority, string> = {
 };
 
 export const statusLabel: Record<TaskStatus, string> = {
-  pending: "Chờ phản hồi",
   in_progress: "Đang thực hiện",
   completed: "Hoàn thành",
   rejection_pending: "Chờ duyệt hủy",
@@ -65,7 +64,6 @@ export const statusLabel: Record<TaskStatus, string> = {
 };
 
 export const statusColor: Record<TaskStatus, string> = {
-  pending: "bg-amber-50 text-amber-700 border-amber-200",
   in_progress: "bg-blue-50 text-blue-700 border-blue-200",
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   rejection_pending: "bg-orange-50 text-orange-700 border-orange-200",

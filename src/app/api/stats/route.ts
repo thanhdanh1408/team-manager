@@ -1,18 +1,20 @@
 import { getAuthUser, requireAuth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
 import { handleApiError, jsonOk } from "@/lib/api-helpers";
+import { getDocuments, countDocuments, COLLECTIONS } from "@/lib/db";
 
 export async function GET() {
   try {
     const user = requireAuth(await getAuthUser());
 
     if (user.role === "member") {
-      const tasks = await prisma.task.findMany({
-        where: { assigneeId: user.id },
-      });
-      const evaluations = await prisma.evaluation.findMany({
-        where: { memberId: user.id },
-      });
+      const [tasks, evaluations] = await Promise.all([
+        getDocuments<{ status: string }>(COLLECTIONS.TASKS, [
+          { field: "assigneeId", op: "==", value: user.id },
+        ]),
+        getDocuments<{ rating: number }>(COLLECTIONS.EVALUATIONS, [
+          { field: "memberId", op: "==", value: user.id },
+        ]),
+      ]);
       const avg =
         evaluations.length === 0
           ? 0
@@ -20,39 +22,63 @@ export async function GET() {
 
       return jsonOk({
         totalTasks: tasks.length,
-        pendingTasks: tasks.filter((t) => t.status === "pending").length,
+        pendingTasks: 0,
         inProgressTasks: tasks.filter((t) => t.status === "in_progress").length,
         completedTasks: tasks.filter((t) => t.status === "completed").length,
-        rejectionPending: tasks.filter((t) => t.status === "rejection_pending")
-          .length,
+        rejectionPending: tasks.filter((t) => t.status === "rejection_pending").length,
         cancelledTasks: tasks.filter((t) => t.status === "cancelled").length,
         averageRating: Math.round(avg * 10) / 10,
       });
     }
 
-    const [members, tasks] = await Promise.all([
-      prisma.user.count({ where: { role: "member", isActive: true } }),
-      prisma.task.findMany(),
+    // Admin: use countDocuments to avoid fetching all task documents
+    const [
+      totalMembers,
+      totalTasks,
+      inProgressTasks,
+      completedTasks,
+      rejectionPending,
+      cancelledTasks,
+      overdueTasks,
+    ] = await Promise.all([
+      countDocuments(COLLECTIONS.USERS, [
+        { field: "role", op: "==", value: "member" },
+        { field: "isActive", op: "==", value: true },
+      ]),
+      countDocuments(COLLECTIONS.TASKS, []),
+      countDocuments(COLLECTIONS.TASKS, [{ field: "status", op: "==", value: "in_progress" }]),
+      countDocuments(COLLECTIONS.TASKS, [{ field: "status", op: "==", value: "completed" }]),
+      countDocuments(COLLECTIONS.TASKS, [{ field: "status", op: "==", value: "rejection_pending" }]),
+      countDocuments(COLLECTIONS.TASKS, [{ field: "status", op: "==", value: "cancelled" }]),
+      // Overdue: tasks not completed/cancelled with dueDate < now
+      // Firestore doesn't support "not in" + date range easily in one query,
+      // so we fetch only the minimal fields needed for the overdue check.
+      getDocuments<{ status: string; dueDate: string }>(COLLECTIONS.TASKS, [], {}).then(
+        (tasks) => {
+          const now = new Date();
+          return tasks.filter(
+            (t) =>
+              t.status !== "completed" &&
+              t.status !== "cancelled" &&
+              new Date(t.dueDate) < now
+          ).length;
+        }
+      ),
     ]);
 
-    const now = new Date();
     return jsonOk({
-      totalMembers: members,
-      totalTasks: tasks.length,
-      pendingTasks: tasks.filter((t) => t.status === "pending").length,
-      inProgressTasks: tasks.filter((t) => t.status === "in_progress").length,
-      completedTasks: tasks.filter((t) => t.status === "completed").length,
-      rejectionPending: tasks.filter((t) => t.status === "rejection_pending")
-        .length,
-      cancelledTasks: tasks.filter((t) => t.status === "cancelled").length,
-      overdueTasks: tasks.filter(
-        (t) =>
-          t.status !== "completed" &&
-          t.status !== "cancelled" &&
-          t.dueDate < now
-      ).length,
+      totalMembers,
+      totalTasks,
+      pendingTasks: 0,
+      inProgressTasks,
+      completedTasks,
+      rejectionPending,
+      cancelledTasks,
+      overdueTasks,
     });
   } catch (err) {
     return handleApiError(err);
   }
 }
+
+

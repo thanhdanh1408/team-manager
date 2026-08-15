@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import {
   createRefreshToken,
   createToken,
@@ -13,6 +12,11 @@ import { getClientIp, rateLimitLogin } from "@/lib/rate-limit";
 import { generateCsrfToken, setCsrfCookie } from "@/lib/csrf";
 import { MESSAGES } from "@/constants";
 import { logger } from "@/lib/logger";
+import {
+  getDocuments,
+  createDocument,
+  COLLECTIONS,
+} from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,9 +29,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = loginSchema.parse(body);
 
-    const user = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase() },
-    });
+    const users = await getDocuments<{
+      name: string;
+      email: string;
+      passwordHash: string;
+      role: string;
+      position: string;
+      isActive: boolean;
+    }>(COLLECTIONS.USERS, [
+      { field: "email", op: "==", value: data.email.toLowerCase() },
+    ]);
+
+    const user = users[0] ?? null;
 
     if (!user || !user.isActive) {
       return jsonError(MESSAGES.loginFailed, 401);
@@ -53,15 +66,12 @@ export async function POST(req: NextRequest) {
     await setRefreshCookie(refreshToken);
     await setCsrfCookie(generateCsrfToken());
 
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        action: "login",
-        detail: `${user.name} đăng nhập hệ thống`,
-      },
+    await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+      userId: user.id,
+      action: "login",
+      detail: `${user.name} đăng nhập hệ thống`,
     });
 
-    // In-app notification for admin logins is optional; skip noise
     const res = jsonOk({ user: authUser });
     res.headers.set("X-RateLimit-Remaining", String(rl.remaining));
     return res;
@@ -69,5 +79,4 @@ export async function POST(req: NextRequest) {
     return handleApiError(err);
   }
 }
-
 

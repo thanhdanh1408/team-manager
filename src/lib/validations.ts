@@ -93,7 +93,6 @@ export const bulkTaskSchema = z.object({
   priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
 
-
 export const taskUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   description: z.string().max(2000).optional(),
@@ -103,7 +102,7 @@ export const taskUpdateSchema = z.object({
     .string()
     .optional()
     .refine((d) => {
-      if (!d) return true; // optional, skip if not provided
+      if (!d) return true;
       const date = new Date(d);
       return !isNaN(date.getTime());
     }, "Ngày không hợp lệ")
@@ -115,13 +114,7 @@ export const taskUpdateSchema = z.object({
       return date >= today;
     }, "Hạn chót phải từ hôm nay trở đi"),
   status: z
-    .enum([
-      "pending",
-      "in_progress",
-      "completed",
-      "rejection_pending",
-      "cancelled",
-    ])
+    .enum(["in_progress", "completed", "rejection_pending", "cancelled"])
     .optional(),
   progress: z.number().min(0).max(100).optional(),
 });
@@ -134,6 +127,10 @@ export const progressSchema = z.object({
   progress: z.number().min(0).max(100),
 });
 
+export const taskReportSchema = z.object({
+  content: z.string().min(10, "Nội dung báo cáo tối thiểu 10 ký tự").max(5000),
+});
+
 export const evaluationSchema = z.object({
   memberId: z.string().min(1),
   taskId: z.string().optional().nullable(),
@@ -143,6 +140,26 @@ export const evaluationSchema = z.object({
 
 export const reassignSchema = z.object({
   assigneeId: z.string().min(1, "Chọn thành viên"),
+});
+
+export const conversationCreateSchema = z.object({
+  type: z.enum(["direct", "group"]),
+  memberIds: z.array(z.string()).min(1, "Cần ít nhất 1 thành viên"),
+  name: z.string().max(100).optional(),
+});
+
+export const sendMessageSchema = z.object({
+  content: z.string().max(5000).default(""),
+  attachments: z
+    .array(
+      z.object({
+        name: z.string(),
+        url: z.string().url(),
+        type: z.enum(["image", "file"]),
+        size: z.number(),
+      })
+    )
+    .default([]),
 });
 
 export function formatZodError(error: z.ZodError): Record<string, string> {

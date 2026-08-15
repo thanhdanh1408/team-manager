@@ -132,7 +132,7 @@ interface TaskSummaryPDFProps {
 export function TaskSummaryPDF({ tasks, getUser, period }: TaskSummaryPDFProps) {
   const stats = {
     total: tasks.length,
-    pending: tasks.filter((t) => t.status === "pending").length,
+    pending: tasks.filter((t) => t.status === "rejection_pending").length,
     inProgress: tasks.filter((t) => t.status === "in_progress").length,
     completed: tasks.filter((t) => t.status === "completed").length,
     cancelled: tasks.filter((t) => t.status === "cancelled").length,

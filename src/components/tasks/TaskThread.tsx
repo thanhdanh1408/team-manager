@@ -12,7 +12,7 @@ import { useAuth } from "@/context/AuthContext";
 
 interface TaskThreadProps {
   taskId: string;
-  taskTitle: string;
+  taskTitle?: string;
   /** Admin-only: show inline eval button */
   canEvaluate?: boolean;
   onEvaluate?: () => void;
@@ -22,7 +22,7 @@ const POLL_MS = 4000;
 
 export function TaskThread({
   taskId,
-  taskTitle,
+  taskTitle = "",
   canEvaluate,
   onEvaluate,
 }: TaskThreadProps) {

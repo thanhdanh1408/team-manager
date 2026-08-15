@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import {
   getAuthUser,
   hashPassword,
@@ -11,13 +10,24 @@ import {
 } from "@/lib/auth";
 import { profileUpdateSchema } from "@/lib/validations";
 import { handleApiError, jsonError, jsonOk, toUserDto } from "@/lib/api-helpers";
+import {
+  getDocument,
+  createDocument,
+  updateDocument,
+  COLLECTIONS,
+} from "@/lib/db";
+
+type FirestoreUser = {
+  name: string; email: string; role: string; position: string;
+  phone: string; avatar: string | null; isActive: boolean; createdAt: string;
+};
 
 export async function GET() {
   try {
     const auth = requireAuth(await getAuthUser());
-    const user = await prisma.user.findUnique({ where: { id: auth.id } });
+    const user = await getDocument<FirestoreUser>(COLLECTIONS.USERS, auth.id);
     if (!user) return jsonError("Không tìm thấy", 404);
-    return jsonOk(toUserDto(user));
+    return jsonOk(toUserDto(user as Parameters<typeof toUserDto>[0]));
   } catch (err) {
     return handleApiError(err);
   }
@@ -37,10 +47,9 @@ export async function PUT(req: NextRequest) {
       update.passwordHash = await hashPassword(data.password);
     }
 
-    const user = await prisma.user.update({
-      where: { id: auth.id },
-      data: update,
-    });
+    await updateDocument(COLLECTIONS.USERS, auth.id, update);
+    const user = await getDocument<FirestoreUser>(COLLECTIONS.USERS, auth.id);
+    if (!user) return jsonError("Không tìm thấy", 404);
 
     // Refresh tokens if name/position changed so JWT stays in sync
     const authUser = {
@@ -53,16 +62,15 @@ export async function PUT(req: NextRequest) {
     await setAuthCookie(await createToken(authUser));
     await setRefreshCookie(await createRefreshToken(authUser));
 
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        action: "update_profile",
-        detail: `${user.name} cập nhật hồ sơ`,
-      },
+    await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+      userId: user.id,
+      action: "update_profile",
+      detail: `${user.name} cập nhật hồ sơ`,
     });
 
-    return jsonOk({ user: toUserDto(user), authUser });
+    return jsonOk({ user: toUserDto(user as Parameters<typeof toUserDto>[0]), authUser });
   } catch (err) {
     return handleApiError(err);
   }
 }
+

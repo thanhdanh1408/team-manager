@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { rateLimit, rateLimitLogin } from "../rate-limit";
+import { RATE_LIMIT_LOGIN_MAX } from "@/constants";
 
 describe("Rate Limiter", () => {
   beforeEach(() => {
@@ -45,13 +46,13 @@ describe("Rate Limiter", () => {
 
     it("should block after max login attempts", () => {
       const ip = "192.168.1.5";
-      
-      // Make 5 attempts (the max)
-      for (let i = 0; i < 5; i++) {
+
+      // Make RATE_LIMIT_LOGIN_MAX attempts (the max)
+      for (let i = 0; i < RATE_LIMIT_LOGIN_MAX; i++) {
         rateLimitLogin(ip);
       }
-      
-      // 6th attempt should be blocked
+
+      // The next attempt should be blocked
       const blocked = rateLimitLogin(ip);
       expect(blocked.allowed).toBe(false);
       expect(blocked.remaining).toBe(0);

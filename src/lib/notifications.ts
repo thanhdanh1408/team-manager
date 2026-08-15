@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { createDocument, COLLECTIONS } from "@/lib/db";
 
 /** Create an in-app notification for a user */
 export async function notifyUser(params: {
@@ -9,14 +9,13 @@ export async function notifyUser(params: {
   link?: string;
 }) {
   try {
-    await prisma.notification.create({
-      data: {
-        userId: params.userId,
-        title: params.title,
-        message: params.message,
-        type: params.type || "info",
-        link: params.link || null,
-      },
+    await createDocument(COLLECTIONS.NOTIFICATIONS, {
+      userId: params.userId,
+      title: params.title,
+      message: params.message,
+      type: params.type || "info",
+      link: params.link || null,
+      read: false,
     });
   } catch (err) {
     console.error("[notifyUser]", err);
@@ -40,3 +39,4 @@ export async function notifyTaskAssigned(
   // taskId reserved for future deep-link support
   void taskId;
 }
+

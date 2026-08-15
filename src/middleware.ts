@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { ACCESS_COOKIE, CSRF_COOKIE, MESSAGES } from "@/constants";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "team-manager-dev-secret-change-in-production-2026"
-);
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("Missing required environment variable: JWT_SECRET");
+  }
+  return new TextEncoder().encode(secret || "team-manager-dev-secret-change-in-production-2026");
+})();
 
 async function getPayload(req: NextRequest) {
   const token = req.cookies.get(ACCESS_COOKIE)?.value;

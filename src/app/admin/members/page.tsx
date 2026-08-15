@@ -57,7 +57,6 @@ export default function MembersPage() {
   const {
     members,
     tasks,
-    evaluations,
     loading,
     addUser,
     updateUser,

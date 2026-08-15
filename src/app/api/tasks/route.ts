@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAuth, requireAdmin } from "@/lib/auth";
 import { taskCreateSchema } from "@/lib/validations";
 import {
@@ -9,13 +8,17 @@ import {
 } from "@/lib/api-helpers";
 import { notifyTaskAssigned } from "@/lib/notifications";
 import { applyRateLimit } from "@/lib/middleware";
-
+import {
+  getDocuments,
+  createDocument,
+  COLLECTIONS,
+} from "@/lib/db";
 
 export async function GET(req: NextRequest) {
   try {
     const rateLimitError = await applyRateLimit(req);
     if (rateLimitError) return rateLimitError;
-    
+
     const user = requireAuth(await getAuthUser());
     const { searchParams } = req.nextUrl;
     const status = searchParams.get("status");
@@ -27,35 +30,52 @@ export async function GET(req: NextRequest) {
       Math.max(1, parseInt(searchParams.get("pageSize") || "20", 10))
     );
 
-    const where: Record<string, unknown> = {};
+    const filters: Array<{ field: string; op: "=="; value: unknown }> = [];
 
     // Members only see their own tasks
     if (user.role === "member") {
-      where.assigneeId = user.id;
+      filters.push({ field: "assigneeId", op: "==", value: user.id });
     } else if (assigneeId) {
-      where.assigneeId = assigneeId;
+      filters.push({ field: "assigneeId", op: "==", value: assigneeId });
     }
 
-    if (status && status !== "all") where.status = status;
+    if (status && status !== "all") {
+      filters.push({ field: "status", op: "==", value: status });
+    }
+
+    let tasks = await getDocuments<{
+      title: string;
+      description: string;
+      assigneeId: string | null;
+      createdById: string;
+      priority: string;
+      status: string;
+      progress: number;
+      dueDate: string;
+      rejectionReason: string | null;
+      completedAt: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }>(COLLECTIONS.TASKS, filters, {
+      orderByField: "createdAt",
+      orderDirection: "desc",
+    });
+
+    // Apply search filter in memory
     if (search) {
-      where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
-      ];
+      const s = search.toLowerCase();
+      tasks = tasks.filter(
+        (t) =>
+          t.title?.toLowerCase().includes(s) ||
+          t.description?.toLowerCase().includes(s)
+      );
     }
 
-    const [total, tasks] = await Promise.all([
-      prisma.task.count({ where }),
-      prisma.task.findMany({
-        where,
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
+    const total = tasks.length;
+    const paginated = tasks.slice((page - 1) * pageSize, page * pageSize);
 
     return jsonOk({
-      data: tasks.map(toTaskDto),
+      data: paginated.map((t) => toTaskDto(t as Parameters<typeof toTaskDto>[0])),
       pagination: {
         page,
         pageSize,
@@ -72,37 +92,37 @@ export async function POST(req: NextRequest) {
   try {
     const rateLimitError = await applyRateLimit(req);
     if (rateLimitError) return rateLimitError;
-    
+
     const admin = requireAdmin(await getAuthUser());
     const body = await req.json();
     const data = taskCreateSchema.parse(body);
 
-    const task = await prisma.task.create({
-      data: {
-        title: data.title.trim(),
-        description: data.description || "",
-        assigneeId: data.assigneeId || null,
-        createdById: admin.id,
-        priority: data.priority,
-        status: "pending",
-        progress: 0,
-        dueDate: new Date(data.dueDate),
-      },
+    const now = new Date().toISOString();
+    const task = await createDocument(COLLECTIONS.TASKS, {
+      title: data.title.trim(),
+      description: data.description || "",
+      assigneeId: data.assigneeId || null,
+      createdById: admin.id,
+      priority: data.priority,
+      status: "in_progress",
+      progress: 0,
+      dueDate: new Date(data.dueDate).toISOString(),
+      rejectionReason: null,
+      completedAt: null,
+      updatedAt: now,
     });
 
-    await prisma.activityLog.create({
-      data: {
-        userId: admin.id,
-        action: "create_task",
-        detail: `Tạo task: ${task.title}`,
-      },
+    await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+      userId: admin.id,
+      action: "create_task",
+      detail: `Tạo task: ${task.title}`,
     });
 
-    await notifyTaskAssigned(task.assigneeId, task.title, task.id);
+    await notifyTaskAssigned(task.assigneeId as string | null, task.title as string, task.id);
 
-    return jsonOk(toTaskDto(task), 201);
-
+    return jsonOk(toTaskDto(task as Parameters<typeof toTaskDto>[0]), 201);
   } catch (err) {
     return handleApiError(err);
   }
 }
+

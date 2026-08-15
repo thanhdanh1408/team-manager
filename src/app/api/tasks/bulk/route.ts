@@ -1,9 +1,15 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAdmin } from "@/lib/auth";
 import { bulkTaskSchema } from "@/lib/validations";
 import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import { notifyTaskAssigned } from "@/lib/notifications";
+import {
+  getDocument,
+  createDocument,
+  deleteDocument,
+  updateDocument,
+  COLLECTIONS,
+} from "@/lib/db";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,66 +18,62 @@ export async function POST(req: NextRequest) {
     const data = bulkTaskSchema.parse(body);
 
     if (data.action === "delete") {
-      const result = await prisma.task.deleteMany({
-        where: { id: { in: data.ids } },
+      let count = 0;
+      for (const taskId of data.ids) {
+        await deleteDocument(COLLECTIONS.TASKS, taskId);
+        count++;
+      }
+      await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+        userId: admin.id,
+        action: "bulk_delete_tasks",
+        detail: `Xóa hàng loạt ${count} task`,
       });
-      await prisma.activityLog.create({
-        data: {
-          userId: admin.id,
-          action: "bulk_delete_tasks",
-          detail: `Xóa hàng loạt ${result.count} task`,
-        },
-      });
-      return jsonOk({ deleted: result.count });
+      return jsonOk({ deleted: count });
     }
 
     if (data.action === "reassign") {
       if (!data.assigneeId) {
         return jsonError("Cần chọn thành viên", 400);
       }
-      const result = await prisma.task.updateMany({
-        where: { id: { in: data.ids } },
-        data: {
+      let count = 0;
+      for (const taskId of data.ids) {
+        const task = await getDocument<{ title: string }>(COLLECTIONS.TASKS, taskId);
+        await updateDocument(COLLECTIONS.TASKS, taskId, {
           assigneeId: data.assigneeId,
           status: "pending",
           progress: 0,
           rejectionReason: null,
           completedAt: null,
-        },
-      });
-      const tasks = await prisma.task.findMany({
-        where: { id: { in: data.ids } },
-        select: { id: true, title: true },
-      });
-      for (const t of tasks) {
-        await notifyTaskAssigned(data.assigneeId, t.title, t.id);
+        });
+        const taskTitle = task?.title || "";
+        await notifyTaskAssigned(data.assigneeId, taskTitle, taskId);
+        count++;
       }
-      await prisma.activityLog.create({
-        data: {
-          userId: admin.id,
-          action: "bulk_reassign",
-          detail: `Giao lại ${result.count} task`,
-        },
+      await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+        userId: admin.id,
+        action: "bulk_reassign",
+        detail: `Giao lại ${count} task`,
       });
-      return jsonOk({ updated: result.count });
+      return jsonOk({ updated: count });
     }
 
     if (data.action === "priority") {
       if (!data.priority) {
         return jsonError("Cần chọn mức ưu tiên", 400);
       }
-      const result = await prisma.task.updateMany({
-        where: { id: { in: data.ids } },
-        data: { priority: data.priority },
+      let count = 0;
+      for (const taskId of data.ids) {
+        await updateDocument(COLLECTIONS.TASKS, taskId, {
+          priority: data.priority,
+        });
+        count++;
+      }
+      await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+        userId: admin.id,
+        action: "bulk_priority",
+        detail: `Đổi priority ${count} task → ${data.priority}`,
       });
-      await prisma.activityLog.create({
-        data: {
-          userId: admin.id,
-          action: "bulk_priority",
-          detail: `Đổi priority ${result.count} task → ${data.priority}`,
-        },
-      });
-      return jsonOk({ updated: result.count });
+      return jsonOk({ updated: count });
     }
 
     return jsonError("Action không hợp lệ", 400);
@@ -79,3 +81,4 @@ export async function POST(req: NextRequest) {
     return handleApiError(err);
   }
 }
+

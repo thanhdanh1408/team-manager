@@ -1,178 +1,127 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAuth, requireAdmin } from "@/lib/auth";
-import {
-  rejectTaskSchema,
-  progressSchema,
-  reassignSchema,
-} from "@/lib/validations";
-import {
-  handleApiError,
-  jsonError,
-  jsonOk,
-  toTaskDto,
-} from "@/lib/api-helpers";
+import { rejectTaskSchema, reassignSchema } from "@/lib/validations";
+import { handleApiError, jsonError, jsonOk, toTaskDto } from "@/lib/api-helpers";
 import { notifyUser, notifyTaskAssigned } from "@/lib/notifications";
 import { applyRateLimit } from "@/lib/middleware";
-
+import { getDocument, createDocument, updateDocument, COLLECTIONS } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
+type FirestoreTask = {
+  title: string; description: string; assigneeId: string | null;
+  createdById: string; priority: string; status: string;
+  progress: number; dueDate: string; rejectionReason: string | null;
+  completedAt: string | null; createdAt: string; updatedAt: string;
+};
+type TDto = Parameters<typeof toTaskDto>[0];
 
 export async function POST(req: NextRequest, { params }: Params) {
   try {
     const rateLimitError = await applyRateLimit(req);
     if (rateLimitError) return rateLimitError;
-    
     const user = requireAuth(await getAuthUser());
     const { id } = await params;
     const body = await req.json();
     const action = body.action as string;
-
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id);
     if (!task) return jsonError("Không tìm thấy task", 404);
 
     switch (action) {
-      case "accept": {
-        if (task.assigneeId !== user.id || task.status !== "pending") {
-          return jsonError("Không thể đồng ý task này", 400);
-        }
-        const updated = await prisma.task.update({
-          where: { id },
-          data: { status: "in_progress" },
-        });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: "accept_task",
-            detail: `Đồng ý nhận task: ${task.title}`,
-          },
-        });
-        return jsonOk(toTaskDto(updated));
-      }
-
       case "reject": {
-        if (task.assigneeId !== user.id || task.status !== "pending") {
-          return jsonError("Không thể từ chối task này", 400);
-        }
+        if (task.assigneeId !== user.id || task.status !== "in_progress")
+          return jsonError("Không thể yêu cầu hủy task này", 400);
         const { reason } = rejectTaskSchema.parse(body);
-        const updated = await prisma.task.update({
-          where: { id },
-          data: { status: "rejection_pending", rejectionReason: reason },
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          status: "rejection_pending",
+          rejectionReason: reason,
         });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: "reject_task",
-            detail: `Yêu cầu từ chối task: ${task.title}`,
-          },
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "reject_task",
+          detail: `Yêu cầu hủy task: ${task.title}`,
         });
         if (task.createdById) {
           await notifyUser({
             userId: task.createdById,
-            title: "Yêu cầu từ chối task",
-            message: `${user.name} muốn từ chối: ${task.title}`,
+            title: "Yêu cầu hủy task",
+            message: `${user.name} muốn hủy: ${task.title}`,
             type: "warning",
             link: "/admin/tasks",
           });
         }
-        return jsonOk(toTaskDto(updated));
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-
-
       case "approve_rejection": {
         requireAdmin(user);
-        if (task.status !== "rejection_pending") {
+        if (task.status !== "rejection_pending")
           return jsonError("Task không ở trạng thái chờ duyệt hủy", 400);
-        }
-        const updated = await prisma.task.update({
-          where: { id },
-          data: { status: "cancelled", progress: 0 },
+        await updateDocument(COLLECTIONS.TASKS, id, { status: "cancelled", progress: 0 });
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "approve_rejection",
+          detail: `Duyệt hủy task: ${task.title}`,
         });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: "approve_rejection",
-            detail: `Duyệt hủy task: ${task.title}`,
-          },
-        });
-        return jsonOk(toTaskDto(updated));
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-
       case "deny_rejection": {
         requireAdmin(user);
-        if (task.status !== "rejection_pending") {
+        if (task.status !== "rejection_pending")
           return jsonError("Task không ở trạng thái chờ duyệt hủy", 400);
-        }
-        const updated = await prisma.task.update({
-          where: { id },
-          data: { status: "pending", rejectionReason: null },
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          status: "in_progress",
+          rejectionReason: null,
         });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: "deny_rejection",
-            detail: `Từ chối yêu cầu hủy task: ${task.title}`,
-          },
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "deny_rejection",
+          detail: `Từ chối yêu cầu hủy task: ${task.title}`,
         });
-        return jsonOk(toTaskDto(updated));
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-
-      case "progress": {
-        if (task.assigneeId !== user.id || task.status !== "in_progress") {
-          return jsonError("Không thể cập nhật tiến độ", 400);
-        }
-        const { progress } = progressSchema.parse(body);
-        const clamped = Math.max(0, Math.min(100, progress));
-        const updateData: Record<string, unknown> = { progress: clamped };
-        if (clamped === 100) {
-          updateData.status = "completed";
-          updateData.completedAt = new Date();
-        }
-        const updated = await prisma.task.update({
-          where: { id },
-          data: updateData,
+      case "complete": {
+        // Member marks their own task as done
+        if (task.assigneeId !== user.id || task.status !== "in_progress")
+          return jsonError("Không thể hoàn thành task này", 400);
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          status: "completed",
+          progress: 100,
+          completedAt: new Date().toISOString(),
         });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: clamped === 100 ? "complete_task" : "update_progress",
-            detail:
-              clamped === 100
-                ? `Hoàn thành task: ${task.title}`
-                : `Cập nhật tiến độ "${task.title}" → ${clamped}%`,
-          },
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "complete_task",
+          detail: `Hoàn thành task: ${task.title}`,
         });
-        return jsonOk(toTaskDto(updated));
+        if (task.createdById) {
+          await notifyUser({
+            userId: task.createdById,
+            title: "Task đã hoàn thành",
+            message: `${user.name} đã hoàn thành: ${task.title}`,
+            type: "success",
+            link: "/admin/tasks",
+          });
+        }
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-
       case "reassign": {
         requireAdmin(user);
         const { assigneeId } = reassignSchema.parse(body);
-        const member = await prisma.user.findUnique({
-          where: { id: assigneeId },
-        });
+        const member = await getDocument<{ name: string }>(COLLECTIONS.USERS, assigneeId);
         if (!member) return jsonError("Không tìm thấy thành viên", 404);
-        const updated = await prisma.task.update({
-          where: { id },
-          data: {
-            assigneeId,
-            status: "pending",
-            progress: 0,
-            rejectionReason: null,
-          },
+        await updateDocument(COLLECTIONS.TASKS, id, {
+          assigneeId,
+          status: "in_progress",
+          progress: 0,
+          rejectionReason: null,
         });
-        await prisma.activityLog.create({
-          data: {
-            userId: user.id,
-            action: "reassign_task",
-            detail: `Giao lại task "${task.title}" cho ${member.name}`,
-          },
+        await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+          userId: user.id,
+          action: "reassign_task",
+          detail: `Giao lại task "${task.title}" cho ${member.name}`,
         });
         await notifyTaskAssigned(assigneeId, task.title, id);
-        return jsonOk(toTaskDto(updated));
+        return jsonOk(toTaskDto((await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id))! as TDto));
       }
-
-
       default:
         return jsonError("Action không hợp lệ", 400);
     }
@@ -180,3 +129,4 @@ export async function POST(req: NextRequest, { params }: Params) {
     return handleApiError(err);
   }
 }
+

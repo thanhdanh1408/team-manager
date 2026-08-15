@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAdmin, hashPassword } from "@/lib/auth";
 import { userUpdateSchema } from "@/lib/validations";
 import {
@@ -9,6 +8,14 @@ import {
   toUserDto,
 } from "@/lib/api-helpers";
 import { applyRateLimit } from "@/lib/middleware";
+import {
+  getDocument,
+  getDocuments,
+  updateDocument,
+  deleteDocument,
+  updateDocuments,
+  COLLECTIONS,
+} from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -16,9 +23,18 @@ export async function GET(_req: NextRequest, { params }: Params) {
   try {
     requireAdmin(await getAuthUser());
     const { id } = await params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await getDocument<{
+      name: string;
+      email: string;
+      role: string;
+      position: string;
+      phone: string;
+      avatar: string | null;
+      isActive: boolean;
+      createdAt: string;
+    }>(COLLECTIONS.USERS, id);
     if (!user) return jsonError("Không tìm thấy user", 404);
-    return jsonOk(toUserDto(user));
+    return jsonOk(toUserDto(user as Parameters<typeof toUserDto>[0]));
   } catch (err) {
     return handleApiError(err);
   }
@@ -28,20 +44,29 @@ export async function PUT(req: NextRequest, { params }: Params) {
   try {
     const rateLimitError = await applyRateLimit(req);
     if (rateLimitError) return rateLimitError;
-    
+
     requireAdmin(await getAuthUser());
     const { id } = await params;
     const body = await req.json();
     const data = userUpdateSchema.parse(body);
 
-    const existing = await prisma.user.findUnique({ where: { id } });
+    const existing = await getDocument<{
+      name: string;
+      email: string;
+      role: string;
+      position: string;
+      phone: string;
+      avatar: string | null;
+      isActive: boolean;
+      createdAt: string;
+    }>(COLLECTIONS.USERS, id);
     if (!existing) return jsonError("Không tìm thấy user", 404);
 
     if (data.email && data.email.toLowerCase() !== existing.email) {
-      const dup = await prisma.user.findUnique({
-        where: { email: data.email.toLowerCase() },
-      });
-      if (dup) return jsonError("Email đã tồn tại", 409);
+      const dup = await getDocuments(COLLECTIONS.USERS, [
+        { field: "email", op: "==", value: data.email.toLowerCase() },
+      ]);
+      if (dup.length > 0) return jsonError("Email đã tồn tại", 409);
     }
 
     const updateData: Record<string, unknown> = {};
@@ -55,12 +80,19 @@ export async function PUT(req: NextRequest, { params }: Params) {
       updateData.passwordHash = await hashPassword(data.password);
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: updateData,
-    });
+    await updateDocument(COLLECTIONS.USERS, id, updateData);
+    const updated = await getDocument<{
+      name: string;
+      email: string;
+      role: string;
+      position: string;
+      phone: string;
+      avatar: string | null;
+      isActive: boolean;
+      createdAt: string;
+    }>(COLLECTIONS.USERS, id);
 
-    return jsonOk(toUserDto(user));
+    return jsonOk(toUserDto(updated! as Parameters<typeof toUserDto>[0]));
   } catch (err) {
     return handleApiError(err);
   }
@@ -70,21 +102,24 @@ export async function DELETE(req: NextRequest, { params }: Params) {
   try {
     const rateLimitError = await applyRateLimit(req);
     if (rateLimitError) return rateLimitError;
-    
+
     requireAdmin(await getAuthUser());
     const { id } = await params;
-    const user = await prisma.user.findUnique({ where: { id } });
+    const user = await getDocument<{ role: string }>(COLLECTIONS.USERS, id);
     if (!user) return jsonError("Không tìm thấy user", 404);
     if (user.role === "admin") return jsonError("Không thể xóa admin", 400);
 
-    await prisma.task.updateMany({
-      where: { assigneeId: id },
-      data: { assigneeId: null },
-    });
-    await prisma.user.delete({ where: { id } });
+    // Unassign tasks before deleting user
+    await updateDocuments(
+      COLLECTIONS.TASKS,
+      [{ field: "assigneeId", op: "==", value: id }],
+      { assigneeId: null }
+    );
+    await deleteDocument(COLLECTIONS.USERS, id);
 
     return jsonOk({ success: true });
   } catch (err) {
     return handleApiError(err);
   }
 }
+

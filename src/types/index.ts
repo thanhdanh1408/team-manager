@@ -3,7 +3,6 @@ export type Role = "admin" | "member";
 export type TaskPriority = "low" | "medium" | "high" | "urgent";
 
 export type TaskStatus =
-  | "pending"
   | "in_progress"
   | "completed"
   | "rejection_pending"
@@ -35,6 +34,14 @@ export interface Task {
   updatedAt: string;
   rejectionReason?: string;
   completedAt?: string;
+}
+
+export interface TaskReport {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
 }
 
 export interface Evaluation {
@@ -75,7 +82,6 @@ export interface AppNotification {
   createdAt: string;
 }
 
-
 export interface AuthUser {
   id: string;
   name: string;
@@ -95,3 +101,35 @@ export interface Stats {
   overdueTasks?: number;
   averageRating?: number;
 }
+
+// ─── Messenger-style Chat ─────────────────────────────────────────────────────
+
+export type ConversationType = "direct" | "group";
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  name?: string;         // group name (for group convos)
+  memberIds: string[];
+  lastMessage?: string;
+  lastMessageAt?: string;
+  createdAt: string;
+  createdById: string;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  userId: string;
+  content: string;
+  attachments: MessageAttachment[];
+  createdAt: string;
+}
+
+export interface MessageAttachment {
+  name: string;
+  url: string;
+  type: "image" | "file";
+  size: number;
+}
+

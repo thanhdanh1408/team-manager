@@ -1,0 +1,70 @@
+▲ Next.js 16.3.0 (Turbopack)
+- Environments: .env
+✓ Running next.config.ts took 38ms
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.4s
+  Running TypeScript ...
+  Finished TypeScript in 4.1s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/35) ...
+  Generating static pages using 7 workers (8/35) 
+  Generating static pages using 7 workers (17/35) 
+  Generating static pages using 7 workers (26/35) 
+✓ Generating static pages using 7 workers (35/35) in 1648ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin
+├ ○ /admin/activity
+├ ○ /admin/chat
+├ ○ /admin/evaluations
+├ ○ /admin/members
+├ ○ /admin/profile
+├ ○ /admin/tasks
+├ ƒ /api/auth/login
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/me
+├ ƒ /api/auth/refresh
+├ ƒ /api/auth/register
+├ ƒ /api/chat
+├ ƒ /api/conversations
+├ ƒ /api/conversations/[id]/messages
+├ ƒ /api/evaluations
+├ ƒ /api/evaluations/[id]
+├ ƒ /api/export/tasks
+├ ƒ /api/logs
+├ ƒ /api/notifications
+├ ƒ /api/profile
+├ ƒ /api/stats
+├ ƒ /api/tasks
+├ ƒ /api/tasks/[id]
+├ ƒ /api/tasks/[id]/actions
+├ ƒ /api/tasks/[id]/comments
+├ ƒ /api/tasks/[id]/reports
+├ ƒ /api/tasks/bulk
+├ ƒ /api/upload
+├ ƒ /api/users
+├ ƒ /api/users/[id]
+├ ○ /login
+├ ○ /member
+├ ○ /member/chat
+├ ○ /member/evaluations
+├ ○ /member/profile
+├ ○ /member/tasks
+└ ○ /register
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

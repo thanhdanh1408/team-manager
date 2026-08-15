@@ -1,5 +1,4 @@
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db";
 import {
   createRefreshToken,
   createToken,
@@ -10,6 +9,7 @@ import {
 import { REFRESH_COOKIE } from "@/constants";
 import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import { generateCsrfToken, setCsrfCookie } from "@/lib/csrf";
+import { getDocument, COLLECTIONS } from "@/lib/db";
 
 /**
  * Exchange refresh token for a new access + refresh token pair (rotation).
@@ -27,7 +27,14 @@ export async function POST() {
       return jsonError("Refresh token không hợp lệ", 401);
     }
 
-    const user = await prisma.user.findUnique({ where: { id: payload.id } });
+    const user = await getDocument<{
+      name: string;
+      email: string;
+      role: string;
+      position: string;
+      isActive: boolean;
+    }>(COLLECTIONS.USERS, payload.id);
+
     if (!user || !user.isActive) {
       return jsonError("Tài khoản không hợp lệ", 401);
     }
@@ -51,3 +58,4 @@ export async function POST() {
     return handleApiError(err);
   }
 }
+

@@ -3,12 +3,12 @@
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 interface TaskPriorityChartProps {
@@ -30,21 +30,22 @@ export function TaskPriorityChart({ data }: TaskPriorityChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-        <YAxis stroke="#64748b" fontSize={12} />
+      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+        <XAxis dataKey="name" stroke="#64748b" fontSize={12} axisLine={false} tickLine={false} />
+        <YAxis stroke="#64748b" fontSize={12} axisLine={false} tickLine={false} allowDecimals={false} />
         <Tooltip
           contentStyle={{
             backgroundColor: "#fff",
             border: "1px solid #e2e8f0",
             borderRadius: "8px",
+            fontSize: "13px",
           }}
+          formatter={(value) => [String(value), "Số lượng"]}
         />
-        <Legend />
-        <Bar dataKey="count" name="Số lượng" radius={[8, 8, 0, 0]}>
+        <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={56}>
           {data.map((entry, index) => (
-            <Bar key={`bar-${index}`} dataKey="count" fill={entry.color} />
+            <Cell key={`cell-${index}`} fill={entry.color} />
           ))}
         </Bar>
       </BarChart>

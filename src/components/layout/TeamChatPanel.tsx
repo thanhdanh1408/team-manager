@@ -27,6 +27,9 @@ interface TeamMessage {
 
 const POLL_MS = 4000;
 
+/** Deterministic skeleton bar widths (kept pure — no Math.random during render). */
+const SKELETON_WIDTHS = [55, 72, 48, 66, 40];
+
 export function TeamChatPanel() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<TeamMessage[]>([]);
@@ -136,14 +139,14 @@ export function TeamChatPanel() {
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-1 min-h-0">
         {loading ? (
           <div className="space-y-4">
-            {[1, 2, 3, 4, 5].map((i) => (
+            {SKELETON_WIDTHS.map((width, i) => (
               <div key={i} className="flex gap-3 items-start">
                 <div className="h-9 w-9 rounded-full bg-slate-100 animate-pulse shrink-0" />
                 <div className="flex-1 space-y-2">
                   <div className="h-3 w-28 rounded bg-slate-100 animate-pulse" />
                   <div
                     className="h-8 rounded-xl bg-slate-100 animate-pulse"
-                    style={{ width: `${40 + Math.random() * 40}%` }}
+                    style={{ width: `${width}%` }}
                   />
                 </div>
               </div>

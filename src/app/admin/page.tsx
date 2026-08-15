@@ -45,7 +45,6 @@ export default function AdminDashboard() {
 
   // Chart data
   const statusChartData = useMemo(() => [
-    { name: "Chờ xử lý", value: tasks.filter(t => t.status === "pending").length, color: "#64748b" },
     { name: "Đang làm", value: tasks.filter(t => t.status === "in_progress").length, color: "#8b5cf6" },
     { name: "Hoàn thành", value: tasks.filter(t => t.status === "completed").length, color: "#10b981" },
     { name: "Chờ duyệt hủy", value: tasks.filter(t => t.status === "rejection_pending").length, color: "#f59e0b" },
@@ -68,7 +67,7 @@ export default function AdminDashboard() {
           name: member.name.split(" ").slice(-1)[0], // Last name only
           completed: memberTasks.filter(t => t.status === "completed").length,
           inProgress: memberTasks.filter(t => t.status === "in_progress").length,
-          pending: memberTasks.filter(t => t.status === "pending").length,
+          pending: memberTasks.filter(t => t.status === "rejection_pending").length,
         };
       })
       .slice(0, 8); // Top 8 members

@@ -12,14 +12,23 @@ import {
   REFRESH_TOKEN_EXPIRY_DAYS,
 } from "@/constants";
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || "team-manager-dev-secret-change-in-production-2026"
+function requireSecret(name: string, value: string | undefined, fallback: string): Uint8Array {
+  if (!value && process.env.NODE_ENV === "production") {
+    throw new Error(`Missing required environment variable: ${name}`);
+  }
+  return new TextEncoder().encode(value || fallback);
+}
+
+const JWT_SECRET = requireSecret(
+  "JWT_SECRET",
+  process.env.JWT_SECRET,
+  "team-manager-dev-secret-change-in-production-2026"
 );
 
-const REFRESH_SECRET = new TextEncoder().encode(
-  process.env.JWT_REFRESH_SECRET ||
-    process.env.JWT_SECRET ||
-    "team-manager-refresh-secret-change-in-production-2026"
+const REFRESH_SECRET = requireSecret(
+  "JWT_REFRESH_SECRET",
+  process.env.JWT_REFRESH_SECRET ?? process.env.JWT_SECRET,
+  "team-manager-refresh-secret-change-in-production-2026"
 );
 
 export async function hashPassword(password: string): Promise<string> {

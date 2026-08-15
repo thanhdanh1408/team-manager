@@ -1,7 +1,16 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAdmin } from "@/lib/auth";
 import { handleApiError } from "@/lib/api-helpers";
+import { getDocument, getDocuments, COLLECTIONS } from "@/lib/db";
+
+type FirestoreTask = {
+  title: string; description: string; assigneeId: string | null;
+  priority: string; status: string; progress: number;
+  dueDate: string; completedAt: string | null; createdAt: string;
+  createdById: string;
+};
+
+type FirestoreUser = { name: string; email: string };
 
 /** Export tasks as CSV for admin reports */
 export async function GET(req: NextRequest) {
@@ -12,54 +21,60 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
 
-    const where: Record<string, unknown> = {};
-    if (status && status !== "all") where.status = status;
-    if (from || to) {
-      const dueDate: { gte?: Date; lte?: Date } = {};
-      if (from) dueDate.gte = new Date(from);
-      if (to) dueDate.lte = new Date(to);
-      where.dueDate = dueDate;
+    const filters: Array<{ field: string; op: "=="; value: unknown }> = [];
+    if (status && status !== "all") {
+      filters.push({ field: "status", op: "==", value: status });
     }
 
-    const tasks = await prisma.task.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      include: {
-        assignee: { select: { name: true, email: true } },
-        creator: { select: { name: true } },
-      },
+    let tasks = await getDocuments<FirestoreTask>(COLLECTIONS.TASKS, filters, {
+      orderByField: "createdAt", orderDirection: "desc",
     });
 
+    // Apply date filters in memory
+    if (from) {
+      const fromDate = new Date(from);
+      tasks = tasks.filter((t) => new Date(t.dueDate) >= fromDate);
+    }
+    if (to) {
+      const toDate = new Date(to);
+      tasks = tasks.filter((t) => new Date(t.dueDate) <= toDate);
+    }
+
+    // Fetch assignee and creator info — use getDocument (by ID) with a cache
+    const usersCache = new Map<string, FirestoreUser>();
+    async function getUserCached(id: string | null) {
+      if (!id) return null;
+      if (usersCache.has(id)) return usersCache.get(id)!;
+      const u = await getDocument<FirestoreUser>(COLLECTIONS.USERS, id);
+      if (u) usersCache.set(id, u);
+      return u ?? null;
+    }
+
     const header = [
-      "ID",
-      "Tiêu đề",
-      "Mô tả",
-      "Người nhận",
-      "Email",
-      "Người tạo",
-      "Ưu tiên",
-      "Trạng thái",
-      "Tiến độ",
-      "Hạn chót",
-      "Hoàn thành",
-      "Tạo lúc",
+      "ID", "Tiêu đề", "Mô tả", "Người nhận", "Email",
+      "Người tạo", "Ưu tiên", "Trạng thái", "Tiến độ",
+      "Hạn chót", "Hoàn thành", "Tạo lúc",
     ].join(",");
 
-    const rows = tasks.map((t) =>
-      [
-        t.id,
-        csvEscape(t.title),
-        csvEscape(t.description),
-        csvEscape(t.assignee?.name || ""),
-        csvEscape(t.assignee?.email || ""),
-        csvEscape(t.creator.name),
-        t.priority,
-        t.status,
-        t.progress,
-        t.dueDate.toISOString(),
-        t.completedAt?.toISOString() || "",
-        t.createdAt.toISOString(),
-      ].join(",")
+    const rows = await Promise.all(
+      tasks.map(async (t) => {
+        const assignee = await getUserCached(t.assigneeId);
+        const creator = await getUserCached(t.createdById);
+        return [
+          t.id,
+          csvEscape(t.title),
+          csvEscape(t.description),
+          csvEscape(assignee?.name || ""),
+          csvEscape(assignee?.email || ""),
+          csvEscape(creator?.name || ""),
+          t.priority,
+          t.status,
+          t.progress,
+          t.dueDate,
+          t.completedAt || "",
+          t.createdAt,
+        ].join(",");
+      })
     );
 
     const csv = "\uFEFF" + [header, ...rows].join("\n");
@@ -82,3 +97,4 @@ function csvEscape(value: string): string {
   }
   return value;
 }
+

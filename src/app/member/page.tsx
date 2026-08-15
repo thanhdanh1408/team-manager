@@ -30,9 +30,9 @@ export default function MemberDashboard() {
   if (!user) return null;
 
   const myTasks = getTasksByAssignee(user.id);
-  const pending = myTasks.filter((t) => t.status === "pending");
   const inProgress = myTasks.filter((t) => t.status === "in_progress");
   const completed = myTasks.filter((t) => t.status === "completed");
+  const rejectionPending = myTasks.filter((t) => t.status === "rejection_pending");
   const avgRating = getAverageRating(user.id);
   const recentEvals = getEvaluationsByMember(user.id).slice(0, 3);
 
@@ -44,9 +44,9 @@ export default function MemberDashboard() {
       />
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Chờ phản hồi" value={pending.length} icon={AlertCircle} color="amber" />
         <StatCard label="Đang làm" value={inProgress.length} icon={Clock} color="blue" />
         <StatCard label="Hoàn thành" value={completed.length} icon={CheckCircle2} color="emerald" />
+        <StatCard label="Chờ duyệt hủy" value={rejectionPending.length} icon={AlertCircle} color="amber" />
         <StatCard
           label="Đánh giá TB"
           value={avgRating > 0 ? avgRating.toFixed(1) : "—"}
@@ -55,12 +55,12 @@ export default function MemberDashboard() {
         />
       </div>
 
-      {/* Pending tasks alert */}
-      {pending.length > 0 && (
+      {/* Rejection pending alert */}
+      {rejectionPending.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-amber-800">
-              Task mới chờ phản hồi ({pending.length})
+              Task chờ duyệt hủy ({rejectionPending.length})
             </h3>
             <Link
               href="/member/tasks"
@@ -70,7 +70,7 @@ export default function MemberDashboard() {
             </Link>
           </div>
           <div className="space-y-2">
-            {pending.slice(0, 3).map((task) => (
+            {rejectionPending.slice(0, 3).map((task) => (
               <div
                 key={task.id}
                 className="rounded-lg bg-white border border-amber-100 p-3 flex items-center justify-between gap-3"
@@ -86,7 +86,7 @@ export default function MemberDashboard() {
                 </div>
                 <Link href="/member/tasks">
                   <span className="text-xs font-medium text-amber-700 whitespace-nowrap hover:underline">
-                    Phản hồi →
+                    Xem →
                   </span>
                 </Link>
               </div>

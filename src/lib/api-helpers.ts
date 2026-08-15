@@ -28,6 +28,13 @@ export function handleApiError(err: unknown) {
   );
 }
 
+/** Convert a Date or ISO string to ISO string */
+function toIso(v: Date | string | null | undefined): string {
+  if (!v) return "";
+  if (v instanceof Date) return v.toISOString();
+  return v;
+}
+
 export function toUserDto(user: {
   id: string;
   name: string;
@@ -37,7 +44,7 @@ export function toUserDto(user: {
   phone: string;
   avatar: string | null;
   isActive: boolean;
-  createdAt: Date;
+  createdAt: Date | string;
   passwordHash?: string;
 }) {
   return {
@@ -49,7 +56,7 @@ export function toUserDto(user: {
     phone: user.phone,
     avatar: user.avatar ?? undefined,
     isActive: user.isActive,
-    createdAt: user.createdAt.toISOString(),
+    createdAt: toIso(user.createdAt),
     // Never expose passwordHash to client
   };
 }
@@ -63,11 +70,11 @@ export function toTaskDto(task: {
   priority: string;
   status: string;
   progress: number;
-  dueDate: Date;
+  dueDate: Date | string;
   rejectionReason: string | null;
-  completedAt: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
+  completedAt: Date | string | null;
+  createdAt: Date | string;
+  updatedAt: Date | string;
 }) {
   return {
     id: task.id,
@@ -83,11 +90,11 @@ export function toTaskDto(task: {
       | "rejection_pending"
       | "cancelled",
     progress: task.progress,
-    dueDate: task.dueDate.toISOString(),
+    dueDate: toIso(task.dueDate),
     rejectionReason: task.rejectionReason ?? undefined,
-    completedAt: task.completedAt?.toISOString(),
-    createdAt: task.createdAt.toISOString(),
-    updatedAt: task.updatedAt.toISOString(),
+    completedAt: task.completedAt ? toIso(task.completedAt) : undefined,
+    createdAt: toIso(task.createdAt),
+    updatedAt: toIso(task.updatedAt),
   };
 }
 
@@ -98,7 +105,7 @@ export function toEvalDto(e: {
   taskId: string | null;
   rating: number;
   comment: string;
-  createdAt: Date;
+  createdAt: Date | string;
 }) {
   return {
     id: e.id,
@@ -107,7 +114,7 @@ export function toEvalDto(e: {
     taskId: e.taskId ?? undefined,
     rating: e.rating,
     comment: e.comment,
-    createdAt: e.createdAt.toISOString(),
+    createdAt: toIso(e.createdAt),
   };
 }
 
@@ -116,13 +123,14 @@ export function toLogDto(l: {
   userId: string;
   action: string;
   detail: string;
-  createdAt: Date;
+  createdAt: Date | string;
 }) {
   return {
     id: l.id,
     userId: l.userId,
     action: l.action,
     detail: l.detail,
-    createdAt: l.createdAt.toISOString(),
+    createdAt: toIso(l.createdAt),
   };
 }
+

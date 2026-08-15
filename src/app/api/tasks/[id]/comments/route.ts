@@ -1,18 +1,28 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getAuthUser, requireAuth } from "@/lib/auth";
 import { commentSchema } from "@/lib/validations";
 import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import { notifyUser } from "@/lib/notifications";
+import { getDocument, getDocuments, createDocument, COLLECTIONS } from "@/lib/db";
 
 type Params = { params: Promise<{ id: string }> };
+
+type FirestoreTask = {
+  title: string; assigneeId: string | null; createdById: string;
+};
+
+type FirestoreComment = {
+  taskId: string; userId: string; content: string; createdAt: string;
+};
+
+type FirestoreUser = { name: string; role: string };
 
 export async function GET(_req: NextRequest, { params }: Params) {
   try {
     const user = requireAuth(await getAuthUser());
     const { id } = await params;
 
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id);
     if (!task) return jsonError("Không tìm thấy task", 404);
 
     if (
@@ -23,25 +33,29 @@ export async function GET(_req: NextRequest, { params }: Params) {
       return jsonError("Forbidden", 403);
     }
 
-    const comments = await prisma.taskComment.findMany({
-      where: { taskId: id },
-      orderBy: { createdAt: "asc" },
-      include: {
-        user: { select: { id: true, name: true, role: true } },
-      },
-    });
+    const comments = await getDocuments<FirestoreComment & { userId: string }>(
+      COLLECTIONS.TASK_COMMENTS,
+      [{ field: "taskId", op: "==", value: id }],
+      { orderByField: "createdAt", orderDirection: "asc" }
+    );
 
-    return jsonOk({
-      data: comments.map((c) => ({
-        id: c.id,
-        taskId: c.taskId,
-        userId: c.userId,
-        userName: c.user.name,
-        userRole: c.user.role,
-        content: c.content,
-        createdAt: c.createdAt.toISOString(),
-      })),
-    });
+    // Fetch user info for each comment
+    const result = await Promise.all(
+      comments.map(async (c) => {
+        const u = await getDocument<FirestoreUser>(COLLECTIONS.USERS, c.userId);
+        return {
+          id: c.id,
+          taskId: c.taskId,
+          userId: c.userId,
+          userName: u?.name || "Unknown",
+          userRole: u?.role || "member",
+          content: c.content,
+          createdAt: c.createdAt,
+        };
+      })
+    );
+
+    return jsonOk({ data: result });
   } catch (err) {
     return handleApiError(err);
   }
@@ -54,25 +68,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     const body = await req.json();
     const data = commentSchema.parse(body);
 
-    const task = await prisma.task.findUnique({ where: { id } });
+    const task = await getDocument<FirestoreTask>(COLLECTIONS.TASKS, id);
     if (!task) return jsonError("Không tìm thấy task", 404);
 
-    if (
-      user.role === "member" &&
-      task.assigneeId !== user.id
-    ) {
+    if (user.role === "member" && task.assigneeId !== user.id) {
       return jsonError("Forbidden", 403);
     }
 
-    const comment = await prisma.taskComment.create({
-      data: {
-        taskId: id,
-        userId: user.id,
-        content: data.content.trim(),
-      },
-      include: {
-        user: { select: { id: true, name: true, role: true } },
-      },
+    const comment = await createDocument(COLLECTIONS.TASK_COMMENTS, {
+      taskId: id,
+      userId: user.id,
+      content: data.content.trim(),
     });
 
     // Notify the other party
@@ -92,12 +98,10 @@ export async function POST(req: NextRequest, { params }: Params) {
       });
     }
 
-    await prisma.activityLog.create({
-      data: {
-        userId: user.id,
-        action: "comment_task",
-        detail: `Bình luận task: ${task.title}`,
-      },
+    await createDocument(COLLECTIONS.ACTIVITY_LOGS, {
+      userId: user.id,
+      action: "comment_task",
+      detail: `Bình luận task: ${task.title}`,
     });
 
     return jsonOk(
@@ -105,10 +109,10 @@ export async function POST(req: NextRequest, { params }: Params) {
         id: comment.id,
         taskId: comment.taskId,
         userId: comment.userId,
-        userName: comment.user.name,
-        userRole: comment.user.role,
+        userName: user.name,
+        userRole: user.role,
         content: comment.content,
-        createdAt: comment.createdAt.toISOString(),
+        createdAt: comment.createdAt,
       },
       201
     );
@@ -116,3 +120,4 @@ export async function POST(req: NextRequest, { params }: Params) {
     return handleApiError(err);
   }
 }
+
