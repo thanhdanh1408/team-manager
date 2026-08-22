@@ -3,6 +3,7 @@ import { getAuthUser, requireAuth } from "@/lib/auth";
 import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import { getStorage } from "firebase-admin/storage";
 import { getApps } from "firebase-admin/app";
+import { randomUUID } from "node:crypto";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_TYPES = [
@@ -48,13 +49,19 @@ export async function POST(req: NextRequest) {
     const buffer = Buffer.from(bytes);
 
     const fileRef = bucket.file(safeName);
+    const downloadToken = randomUUID();
     await fileRef.save(buffer, {
       contentType: file.type,
-      metadata: { metadata: { uploadedBy: user.id } },
+      metadata: {
+        cacheControl: "private, max-age=3600",
+        metadata: {
+          uploadedBy: user.id,
+          firebaseStorageDownloadTokens: downloadToken,
+        },
+      },
     });
 
-    await fileRef.makePublic();
-    const url = `https://storage.googleapis.com/${bucket.name}/${safeName}`;
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(safeName)}?alt=media&token=${downloadToken}`;
 
     return jsonOk({
       url,

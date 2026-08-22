@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
     const rl = rateLimitLogin(getClientIp(req));
     if (!rl.allowed) return jsonError("Bạn thao tác quá nhanh, vui lòng thử lại sau", 429);
     const data = userCreateSchema.parse({ ...(await req.json()), role: "member" });
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      return jsonError("Dịch vụ gửi OTP chưa được cấu hình", 503);
+    }
     const email = data.email.toLowerCase().trim();
     const existing = await getDocuments(COLLECTIONS.USERS, [{ field: "email", op: "==", value: email }]);
     if (existing.length) return jsonError("Email này đã được đăng ký", 409);
