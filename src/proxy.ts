@@ -24,11 +24,8 @@ async function getPayload(req: NextRequest) {
 
 function checkCsrf(req: NextRequest): boolean {
   const method = req.method.toUpperCase();
-  if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
-    return true;
-  }
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return true;
 
-  // Origin / Referer same-host check
   const host = req.headers.get("host");
   const origin = req.headers.get("origin");
   const referer = req.headers.get("referer");
@@ -47,11 +44,9 @@ function checkCsrf(req: NextRequest): boolean {
     }
   }
 
-  // Double-submit cookie
   const cookieToken = req.cookies.get(CSRF_COOKIE)?.value;
   const headerToken = req.headers.get("x-csrf-token");
   if (!cookieToken) {
-    // Allow first login/logout/register without CSRF cookie yet
     if (
       req.nextUrl.pathname === "/api/auth/login" ||
       req.nextUrl.pathname === "/api/auth/logout" ||
@@ -59,49 +54,32 @@ function checkCsrf(req: NextRequest): boolean {
       req.nextUrl.pathname === "/api/auth/register" ||
       req.nextUrl.pathname === "/api/auth/register/verify-otp" ||
       req.nextUrl.pathname === "/api/auth/google"
-    ) {
-      return true;
-    }
+    ) return true;
     return process.env.NODE_ENV !== "production";
   }
   return !!headerToken && headerToken === cookieToken;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // CSRF for API mutations
   if (pathname.startsWith("/api/") && !checkCsrf(req)) {
     return NextResponse.json({ error: MESSAGES.csrfInvalid }, { status: 403 });
   }
 
   const user = await getPayload(req);
-
-  // Protect admin routes
   if (pathname.startsWith("/admin")) {
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    if (user.role !== "admin") {
-      return NextResponse.redirect(new URL("/member", req.url));
-    }
+    if (!user) return NextResponse.redirect(new URL("/login", req.url));
+    if (user.role !== "admin") return NextResponse.redirect(new URL("/member", req.url));
   }
 
-  // Protect member routes
   if (pathname.startsWith("/member")) {
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
-    if (user.role !== "member") {
-      return NextResponse.redirect(new URL("/admin", req.url));
-    }
+    if (!user) return NextResponse.redirect(new URL("/login", req.url));
+    if (user.role !== "member") return NextResponse.redirect(new URL("/admin", req.url));
   }
 
-  // Redirect logged-in users away from login/register
   if ((pathname === "/login" || pathname === "/register") && user) {
-    return NextResponse.redirect(
-      new URL(user.role === "admin" ? "/admin" : "/member", req.url)
-    );
+    return NextResponse.redirect(new URL(user.role === "admin" ? "/admin" : "/member", req.url));
   }
 
   return NextResponse.next();
