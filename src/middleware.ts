@@ -56,7 +56,9 @@ function checkCsrf(req: NextRequest): boolean {
       req.nextUrl.pathname === "/api/auth/login" ||
       req.nextUrl.pathname === "/api/auth/logout" ||
       req.nextUrl.pathname === "/api/auth/refresh" ||
-      req.nextUrl.pathname === "/api/auth/register"
+      req.nextUrl.pathname === "/api/auth/register" ||
+      req.nextUrl.pathname === "/api/auth/register/verify-otp" ||
+      req.nextUrl.pathname === "/api/auth/google"
     ) {
       return true;
     }

@@ -50,6 +50,7 @@ export async function createToken(user: AuthUser): Promise<string> {
     email: user.email,
     role: user.role,
     position: user.position,
+    avatar: user.avatar,
     type: "access",
   })
     .setProtectedHeader({ alg: "HS256" })
@@ -81,6 +82,7 @@ export async function verifyToken(token: string): Promise<AuthUser | null> {
       email: payload.email as string,
       role: payload.role as Role,
       position: payload.position as string,
+      avatar: payload.avatar as string | undefined,
     };
   } catch {
     return null;

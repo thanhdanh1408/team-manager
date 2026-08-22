@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { User, Task, Evaluation, ActivityLog, Stats, TaskPriority, TaskReport, Conversation, Message } from "@/types";
+import { User, Task, Evaluation, ActivityLog, Stats, TaskPriority, TaskReport, Conversation, ConversationMedia, Message, MessageAttachment } from "@/types";
 import { api, Paginated } from "@/lib/api-client";
 import { POLL_INTERVAL_MS } from "@/constants";
 
@@ -115,12 +115,12 @@ export function useStore() {
   };
 
   // Reports
-  const submitReport = async (taskId: string, content: string) =>
-    api.post<TaskReport>(`/api/tasks/${taskId}/reports`, { content });
-  const getReports = async (taskId: string): Promise<TaskReport[]> => {
+  const submitReport = useCallback(async (taskId: string, content: string, attachments: MessageAttachment[] = []) =>
+    api.post<TaskReport>(`/api/tasks/${taskId}/reports`, { content, attachments }), []);
+  const getReports = useCallback(async (taskId: string): Promise<TaskReport[]> => {
     const res = await api.get<{ data: TaskReport[] }>(`/api/tasks/${taskId}/reports`);
     return res.data;
-  };
+  }, []);
 
   // Evaluations
   const addEvaluation = async (data: { memberId: string; taskId?: string; rating: number; comment: string }) => {
@@ -129,29 +129,38 @@ export function useStore() {
   };
   const deleteEvaluation = async (id: string) => { await api.delete(`/api/evaluations/${id}`); await refresh({ silent: true }); return true; };
   // Chat
-  const getConversations = async () => {
+  const getConversations = useCallback(async () => {
     const res = await api.get<{ data: Conversation[] }>("/api/conversations");
     return res.data;
-  };
-  const createConversation = async (data: { type: "direct" | "group"; memberIds: string[]; name?: string }) =>
-    api.post<Conversation>("/api/conversations", data);
+  }, []);
+  const createConversation = useCallback(async (data: { type: "direct" | "group"; memberIds: string[]; name?: string }) =>
+    api.post<Conversation>("/api/conversations", data), []);
+
+  const updateConversation = useCallback(async (id: string, data: { name?: string; memberIds?: string[] }) =>
+    api.put<Conversation>(`/api/conversations/${id}`, data), []);
+
+  const getConversationMedia = useCallback(async (id: string) => {
+    const res = await api.get<{ data: ConversationMedia[] }>(`/api/conversations/${id}/media`);
+    return res.data;
+  }, []);
 
   type EnrichedMsg = Message & { userName: string; userAvatar?: string };
   type MsgResponse = { data: EnrichedMsg[]; pagination: { page: number; pageSize: number; total: number; totalPages: number } };
 
-  const getMessages = async (conversationId: string, page = 1) =>
-    api.get<MsgResponse>(`/api/conversations/${conversationId}/messages?page=${page}&pageSize=30`);
+  const getMessages = useCallback(async (conversationId: string, page = 1) =>
+    api.get<MsgResponse>(`/api/conversations/${conversationId}/messages?page=${page}&pageSize=30`), []);
 
-  const sendMessage = async (conversationId: string, content: string, attachments: Message["attachments"] = []) =>
-    api.post<EnrichedMsg>(`/api/conversations/${conversationId}/messages`, { content, attachments });
+  const sendMessage = useCallback(async (conversationId: string, content: string, attachments: Message["attachments"] = []) =>
+    api.post<EnrichedMsg>(`/api/conversations/${conversationId}/messages`, { content, attachments }), []);
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = useCallback(async (file: File, purpose: "chat" | "report" | "avatar" = "chat") => {
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("purpose", purpose);
     const res = await fetch("/api/upload", { method: "POST", body: formData, credentials: "include" });
     if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error((err as { error?: string }).error || "Tải tệp lên thất bại"); }
     return res.json() as Promise<{ url: string; name: string; type: "image" | "file"; size: number }>;
-  };
+  }, []);
 
   return {
     users, members, tasks, evaluations, logs, stats, loading, error,
@@ -162,7 +171,8 @@ export function useStore() {
     approveRejection, denyRejection, reassignTask,
     submitReport, getReports,
     addEvaluation, deleteEvaluation,
-    getConversations, createConversation, getMessages, sendMessage, uploadFile,
+    getConversations, createConversation, updateConversation, getConversationMedia,
+    getMessages, sendMessage, uploadFile,
     refresh,
   };
 }

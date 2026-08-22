@@ -33,6 +33,7 @@ export async function POST() {
       role: string;
       position: string;
       isActive: boolean;
+      avatar?: string;
     }>(COLLECTIONS.USERS, payload.id);
 
     if (!user || !user.isActive) {
@@ -45,6 +46,7 @@ export async function POST() {
       email: user.email,
       role: user.role as "admin" | "member",
       position: user.position,
+      avatar: user.avatar,
     };
 
     const accessToken = await createToken(authUser);

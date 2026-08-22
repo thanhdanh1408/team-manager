@@ -14,6 +14,7 @@ import {
   FileDown,
   Star,
   Eye,
+  Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -763,6 +764,9 @@ function TasksContent() {
                   <span className="text-xs text-slate-400">{formatDate(r.createdAt)}</span>
                 </div>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.content}</p>
+                {r.attachments?.length > 0 && <div className="mt-2 space-y-1 border-t border-slate-200 pt-2">
+                  {r.attachments.map((attachment, attachmentIndex) => <a key={`${attachment.url}-${attachmentIndex}`} href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline"><Paperclip size={12} />{attachment.name}</a>)}
+                </div>}
               </div>
             ))}
           </div>

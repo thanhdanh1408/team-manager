@@ -7,7 +7,7 @@ import { notifyUser } from "@/lib/notifications";
 
 type Params = { params: Promise<{ id: string }> };
 type FirestoreTask = { assigneeId: string | null; title: string; status: string };
-type FirestoreReport = { taskId: string; userId: string; content: string; createdAt: string };
+type FirestoreReport = { taskId: string; userId: string; content: string; attachments?: unknown[]; createdAt: string };
 
 /** GET /api/tasks/[id]/reports — admin sees all, member sees own */
 export async function GET(_req: NextRequest, { params }: Params) {
@@ -29,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       { orderByField: "createdAt", orderDirection: "asc" }
     );
 
-    return jsonOk({ data: reports });
+    return jsonOk({ data: reports.map((report) => ({ ...report, attachments: report.attachments || [] })) });
   } catch (err) {
     return handleApiError(err);
   }
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       taskId: id,
       userId: user.id,
       content: data.content.trim(),
+      attachments: data.attachments,
     });
 
     await createDocument(COLLECTIONS.ACTIVITY_LOGS, {

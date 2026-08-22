@@ -76,6 +76,14 @@ export const profileUpdateSchema = z.object({
     .or(z.literal(""))
     .optional(),
   position: z.string().min(1).max(100).optional(),
+  avatar: z.string().url("Ảnh đại diện không hợp lệ").or(z.literal("")).optional(),
+  bio: z.string().max(500, "Giới thiệu tối đa 500 ký tự").optional(),
+  department: z.string().max(100).optional(),
+  location: z.string().max(150).optional(),
+  dateOfBirth: z
+    .string()
+    .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), "Ngày sinh không hợp lệ")
+    .optional(),
   password: z
     .string()
     .min(8, "Mật khẩu tối thiểu 8 ký tự")
@@ -124,6 +132,17 @@ export const rejectTaskSchema = z.object({
 
 export const taskReportSchema = z.object({
   content: z.string().min(10, "Nội dung báo cáo tối thiểu 10 ký tự").max(5000),
+  attachments: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(255),
+        url: z.string().url(),
+        type: z.enum(["image", "file"]),
+        size: z.number().nonnegative(),
+      })
+    )
+    .max(10, "Tối đa 10 tệp")
+    .default([]),
 });
 
 export const evaluationSchema = z.object({
@@ -141,6 +160,11 @@ export const conversationCreateSchema = z.object({
   type: z.enum(["direct", "group"]),
   memberIds: z.array(z.string()).min(1, "Cần ít nhất 1 thành viên"),
   name: z.string().max(100).optional(),
+});
+
+export const conversationUpdateSchema = z.object({
+  name: z.string().min(1, "Tên nhóm không được để trống").max(100).optional(),
+  memberIds: z.array(z.string()).min(2, "Nhóm cần ít nhất 2 thành viên").optional(),
 });
 
 export const sendMessageSchema = z.object({

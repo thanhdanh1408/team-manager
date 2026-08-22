@@ -43,6 +43,10 @@ export function toUserDto(user: {
   position: string;
   phone: string;
   avatar: string | null;
+  bio?: string;
+  department?: string;
+  location?: string;
+  dateOfBirth?: string;
   isActive: boolean;
   createdAt: Date | string;
   passwordHash?: string;
@@ -55,6 +59,10 @@ export function toUserDto(user: {
     position: user.position,
     phone: user.phone,
     avatar: user.avatar ?? undefined,
+    bio: user.bio ?? undefined,
+    department: user.department ?? undefined,
+    location: user.location ?? undefined,
+    dateOfBirth: user.dateOfBirth ?? undefined,
     isActive: user.isActive,
     createdAt: toIso(user.createdAt),
     // Never expose passwordHash to client

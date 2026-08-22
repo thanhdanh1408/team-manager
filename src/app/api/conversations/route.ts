@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { getAuthUser, requireAuth } from "@/lib/auth";
 import { conversationCreateSchema } from "@/lib/validations";
-import { handleApiError, jsonOk } from "@/lib/api-helpers";
+import { handleApiError, jsonError, jsonOk } from "@/lib/api-helpers";
 import {
   getDocuments,
   createDocument,
@@ -60,7 +60,15 @@ export async function POST(req: NextRequest) {
 
     // Ensure creator is always a member
     const memberIds = Array.from(new Set([user.id, ...data.memberIds]));
-
+    const memberRecords = await Promise.all(
+      memberIds.map((id) => getDocument<FirestoreUser & { isActive?: boolean }>(COLLECTIONS.USERS, id))
+    );
+    if (memberRecords.some((member) => !member || member.isActive === false)) {
+      return jsonError("Danh sách thành viên có tài khoản không hợp lệ", 400);
+    }
+    if (data.type === "direct" && memberIds.length !== 2) {
+      return jsonError("Tin nhắn riêng chỉ gồm 2 thành viên", 400);
+    }
     // For direct conversations: check if one already exists
     if (data.type === "direct" && memberIds.length === 2) {
       const existing = await getDocuments<FirestoreConversation>(
@@ -90,7 +98,15 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    return jsonOk(conv, 201);
+    return jsonOk({
+      ...conv,
+      members: memberRecords.map((member, index) => ({
+        id: memberIds[index],
+        name: member?.name || "Không xác định",
+        avatar: member?.avatar,
+      })),
+      displayName: data.type === "group" ? data.name : memberRecords.find((_, index) => memberIds[index] !== user.id)?.name,
+    }, 201);
   } catch (err) {
     return handleApiError(err);
   }

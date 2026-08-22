@@ -13,6 +13,7 @@ import {
   ClipboardList,
   UserCircle,
   MessageSquare,
+  Bot,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
@@ -23,6 +24,7 @@ const adminLinks = [
   { href: "/admin", label: "Tổng quan", icon: LayoutDashboard },
   { href: "/admin/members", label: "Thành viên", icon: Users },
   { href: "/admin/tasks", label: "Công việc", icon: CheckSquare },
+  { href: "/admin/ai-planner", label: "AI phân công", icon: Bot },
   { href: "/admin/chat", label: "Team Chat", icon: MessageSquare },
   { href: "/admin/activity", label: "Nhật ký", icon: Activity },
   { href: "/admin/profile", label: "Hồ sơ", icon: UserCircle },
@@ -89,7 +91,7 @@ export function Sidebar() {
 
       <div className="border-t border-slate-200 px-3 py-4">
         <div className="flex items-center gap-3 px-2 mb-3">
-          <Avatar name={user.name} size="sm" />
+          <Avatar name={user.name} src={user.avatar} size="sm" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-slate-900 truncate">
               {user.name}

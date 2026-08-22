@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -104,6 +105,8 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            <GoogleSignInButton />
+            <div className="flex items-center gap-3"><div className="h-px flex-1 bg-slate-200" /><span className="text-xs text-slate-400">hoặc đăng nhập bằng email</span><div className="h-px flex-1 bg-slate-200" /></div>
             <Input
               id="email"
               label="Email"

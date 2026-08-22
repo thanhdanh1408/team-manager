@@ -2,6 +2,7 @@ import { getInitials, cn } from "@/lib/utils";
 
 interface AvatarProps {
   name: string;
+  src?: string;
   size?: "sm" | "md" | "lg";
   className?: string;
 }
@@ -25,15 +26,21 @@ function colorFromName(name: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export function Avatar({ name, size = "md", className }: AvatarProps) {
+export function Avatar({ name, src, size = "md", className }: AvatarProps) {
+  const sizeClasses = cn(
+    size === "sm" && "h-7 w-7 text-xs",
+    size === "md" && "h-9 w-9 text-sm",
+    size === "lg" && "h-12 w-12 text-base"
+  );
+  if (src) {
+    return <img src={src} alt={name} className={cn("shrink-0 rounded-full object-cover", sizeClasses, className)} />;
+  }
   return (
     <div
       className={cn(
         "inline-flex items-center justify-center rounded-full text-white font-medium shrink-0",
         colorFromName(name),
-        size === "sm" && "h-7 w-7 text-xs",
-        size === "md" && "h-9 w-9 text-sm",
-        size === "lg" && "h-12 w-12 text-base",
+        sizeClasses,
         className
       )}
     >

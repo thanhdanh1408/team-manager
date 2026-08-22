@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       role: string;
       position: string;
       isActive: boolean;
+      avatar?: string;
     }>(COLLECTIONS.USERS, [
       { field: "email", op: "==", value: data.email.toLowerCase() },
     ]);
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
       email: user.email,
       role: user.role as "admin" | "member",
       position: user.position,
+      avatar: user.avatar,
     };
 
     const accessToken = await createToken(authUser);

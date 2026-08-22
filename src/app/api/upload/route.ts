@@ -25,16 +25,24 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
+    const purpose = String(formData.get("purpose") || "chat");
 
     if (!file) return jsonError("Không tìm thấy file", 400);
     if (file.size > MAX_FILE_SIZE) return jsonError("File quá lớn (tối đa 10MB)", 400);
     if (!ALLOWED_TYPES.includes(file.type)) return jsonError("Loại file không được hỗ trợ", 400);
+    if (!["chat", "report", "avatar"].includes(purpose)) return jsonError("Mục đích tải tệp không hợp lệ", 400);
+    if (purpose === "avatar" && !file.type.startsWith("image/")) return jsonError("Ảnh đại diện phải là tệp hình ảnh", 400);
+
+    const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+    if (!bucketName) {
+      return jsonError("Chưa cấu hình Firebase Storage. Vui lòng thêm FIREBASE_STORAGE_BUCKET.", 503);
+    }
 
     const app = getApps()[0];
-    const bucket = getStorage(app).bucket(process.env.FIREBASE_STORAGE_BUCKET);
+    const bucket = getStorage(app).bucket(bucketName);
 
     const ext = file.name.split(".").pop() || "";
-    const safeName = `chat/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const safeName = `${purpose}/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);

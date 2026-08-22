@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { X, ClipboardList, Search, CheckCircle, FileText, Eye } from "lucide-react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { X, ClipboardList, Search, CheckCircle, FileText, Eye, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -14,7 +14,7 @@ import { TableSkeleton } from "@/components/ui/Skeleton";
 import { useStore } from "@/hooks/useStore";
 import { useAuth } from "@/context/AuthContext";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { Task, TaskReport } from "@/types";
+import { MessageAttachment, Task, TaskReport } from "@/types";
 import { TaskThread } from "@/components/tasks/TaskThread";
 import { formatDate, priorityLabel, priorityColor, statusLabel, statusColor, isOverdue, cn } from "@/lib/utils";
 
@@ -22,7 +22,7 @@ const PAGE_SIZE = 8;
 
 export default function MemberTasksPage() {
   const { user } = useAuth();
-  const { loading, getTasksByAssignee, rejectTask, requestCompletion, submitReport, getReports } = useStore();
+  const { loading, getTasksByAssignee, rejectTask, requestCompletion, submitReport, getReports, uploadFile } = useStore();
 
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -34,6 +34,9 @@ export default function MemberTasksPage() {
   const [reportTask, setReportTask] = useState<Task | null>(null);
   const [reportContent, setReportContent] = useState("");
   const [reportError, setReportError] = useState("");
+  const [reportAttachments, setReportAttachments] = useState<MessageAttachment[]>([]);
+  const [uploadingReport, setUploadingReport] = useState(false);
+  const reportFileRef = useRef<HTMLInputElement>(null);
   const [viewReportsTask, setViewReportsTask] = useState<Task | null>(null);
   const [reports, setReports] = useState<TaskReport[]>([]);
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -81,11 +84,26 @@ export default function MemberTasksPage() {
     if (!reportTask) return;
     setSubmitting(true);
     try {
-      await submitReport(reportTask.id, reportContent.trim());
+      await submitReport(reportTask.id, reportContent.trim(), reportAttachments);
       toast.success("Đã nộp báo cáo thành công");
-      setReportTask(null); setReportContent(""); setReportError("");
+      setReportTask(null); setReportContent(""); setReportError(""); setReportAttachments([]);
     } catch (err) { toast.error(err instanceof Error ? err.message : "Không thể nộp báo cáo"); }
     finally { setSubmitting(false); }
+  };
+
+  const handleReportFiles = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    setUploadingReport(true);
+    try {
+      const uploaded = await Promise.all(files.map((file) => uploadFile(file, "report")));
+      setReportAttachments((previous) => [...previous, ...uploaded].slice(0, 10));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không thể tải tệp báo cáo");
+    } finally {
+      setUploadingReport(false);
+      if (reportFileRef.current) reportFileRef.current.value = "";
+    }
   };
 
   const handleViewReports = async (task: Task) => {
@@ -169,10 +187,22 @@ export default function MemberTasksPage() {
           <Button variant="danger" onClick={handleReject} disabled={submitting}>{submitting ? "Đang gửi..." : "Gửi yêu cầu"}</Button>
         </div>
       </Modal>
-      <Modal open={!!reportTask} onClose={() => setReportTask(null)} title={`Nộp báo cáo: ${reportTask?.title}`} size="md">
+      <Modal open={!!reportTask} onClose={() => { setReportTask(null); setReportAttachments([]); }} title={`Nộp báo cáo: ${reportTask?.title}`} size="md">
         <p className="text-sm text-slate-600 mb-4">Mô tả kết quả đạt được, công việc đã thực hiện và các vấn đề gặp phải.</p>
         <p className="mb-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">Sau khi nộp báo cáo, chọn “Gửi duyệt hoàn thành” để Admin xem xét.</p>
         <Textarea id="report-content" label="Nội dung báo cáo" value={reportContent} onChange={(e) => setReportContent(e.target.value)} error={reportError} rows={6} placeholder="Nhập nội dung báo cáo..." />
+        <div className="mt-4">
+          <input ref={reportFileRef} type="file" multiple className="hidden" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" onChange={handleReportFiles} />
+          <Button type="button" variant="outline" onClick={() => reportFileRef.current?.click()} disabled={uploadingReport || reportAttachments.length >= 10}>
+            <Paperclip size={14} /> {uploadingReport ? "Đang tải tệp..." : "Thêm tệp báo cáo"}
+          </Button>
+          {reportAttachments.length > 0 && <div className="mt-2 space-y-1">
+            {reportAttachments.map((attachment, index) => <div key={`${attachment.url}-${index}`} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+              <Paperclip size={12} /><span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+              <button type="button" onClick={() => setReportAttachments((previous) => previous.filter((_, itemIndex) => itemIndex !== index))} className="text-slate-400 hover:text-red-500"><X size={13} /></button>
+            </div>)}
+          </div>}
+        </div>
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => setReportTask(null)}>Hủy</Button>
           <Button onClick={handleSubmitReport} disabled={submitting}>{submitting ? "Đang nộp..." : "Nộp báo cáo"}</Button>
@@ -192,6 +222,9 @@ export default function MemberTasksPage() {
                   <span className="text-xs text-slate-400">{formatDate(r.createdAt)}</span>
                 </div>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap">{r.content}</p>
+                {r.attachments?.length > 0 && <div className="mt-2 space-y-1 border-t border-slate-200 pt-2">
+                  {r.attachments.map((attachment, attachmentIndex) => <a key={`${attachment.url}-${attachmentIndex}`} href={attachment.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-xs text-blue-600 hover:underline"><Paperclip size={12} />{attachment.name}</a>)}
+                </div>}
               </div>
             ))}
           </div>

@@ -17,6 +17,10 @@ export interface User {
   position: string;
   phone: string;
   avatar?: string;
+  bio?: string;
+  department?: string;
+  location?: string;
+  dateOfBirth?: string;
   createdAt: string;
   isActive: boolean;
 }
@@ -41,6 +45,7 @@ export interface TaskReport {
   taskId: string;
   userId: string;
   content: string;
+  attachments: MessageAttachment[];
   createdAt: string;
 }
 
@@ -88,6 +93,7 @@ export interface AuthUser {
   email: string;
   role: Role;
   position: string;
+  avatar?: string;
 }
 
 export interface Stats {
@@ -116,6 +122,14 @@ export interface Conversation {
   lastMessageAt?: string;
   createdAt: string;
   createdById: string;
+  members?: ConversationMember[];
+  displayName?: string;
+}
+
+export interface ConversationMember {
+  id: string;
+  name: string;
+  avatar?: string;
 }
 
 export interface Message {
@@ -132,5 +146,35 @@ export interface MessageAttachment {
   url: string;
   type: "image" | "file";
   size: number;
+}
+
+export interface ConversationMedia extends MessageAttachment {
+  messageId: string;
+  userId: string;
+  createdAt: string;
+}
+
+export type AiTaskPlanStatus = "draft" | "applied";
+
+export interface AiTaskSuggestion {
+  title: string;
+  description: string;
+  assigneeId: string;
+  assigneeName: string;
+  priority: TaskPriority;
+  dueDate: string;
+  rationale: string;
+}
+
+export interface AiTaskPlan {
+  id: string;
+  requirement: string;
+  analysis: string;
+  tasks: AiTaskSuggestion[];
+  status: AiTaskPlanStatus;
+  createdById: string;
+  createdAt: string;
+  appliedAt?: string;
+  taskIds?: string[];
 }
 

@@ -29,6 +29,8 @@ export const COLLECTIONS = {
   MESSAGES: "messages",
   TASK_COMMENTS: "taskComments",
   TASK_REPORTS: "taskReports",
+  AI_TASK_PLANS: "aiTaskPlans",
+  PENDING_REGISTRATIONS: "pendingRegistrations",
 } as const;
 
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
@@ -115,6 +117,20 @@ export async function createDocument<T extends Record<string, unknown>>(
   });
   const ref = await getDb().collection(collection).add(payload);
   return { id: ref.id, ...(payload as T & { createdAt: string }) };
+}
+
+/** Create or replace a document using a caller-provided id. */
+export async function setDocument<T extends Record<string, unknown>>(
+  collection: string,
+  id: string,
+  data: T
+): Promise<T & { id: string; createdAt: string }> {
+  const payload = stripUndefined({
+    createdAt: new Date().toISOString(),
+    ...data,
+  });
+  await getDb().collection(collection).doc(id).set(payload);
+  return { id, ...(payload as T & { createdAt: string }) };
 }
 
 /** Update a document by id. Auto-fills `updatedAt`. */

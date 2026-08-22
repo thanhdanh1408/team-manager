@@ -20,6 +20,7 @@ import {
 type FirestoreUser = {
   name: string; email: string; role: string; position: string;
   phone: string; avatar: string | null; isActive: boolean; createdAt: string;
+  bio?: string; department?: string; location?: string; dateOfBirth?: string;
 };
 
 export async function GET() {
@@ -43,6 +44,11 @@ export async function PUT(req: NextRequest) {
     if (data.name !== undefined) update.name = data.name.trim();
     if (data.phone !== undefined) update.phone = data.phone;
     if (data.position !== undefined) update.position = data.position.trim();
+    if (data.avatar !== undefined) update.avatar = data.avatar || null;
+    if (data.bio !== undefined) update.bio = data.bio.trim();
+    if (data.department !== undefined) update.department = data.department.trim();
+    if (data.location !== undefined) update.location = data.location.trim();
+    if (data.dateOfBirth !== undefined) update.dateOfBirth = data.dateOfBirth;
     if (data.password && data.password.length > 0) {
       update.passwordHash = await hashPassword(data.password);
     }
@@ -58,6 +64,7 @@ export async function PUT(req: NextRequest) {
       email: user.email,
       role: user.role as "admin" | "member",
       position: user.position,
+      avatar: user.avatar || undefined,
     };
     await setAuthCookie(await createToken(authUser));
     await setRefreshCookie(await createRefreshToken(authUser));
